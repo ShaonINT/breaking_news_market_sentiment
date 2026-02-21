@@ -312,32 +312,26 @@ export default function App() {
   }
 
   const fetchData = async () => {
-    try {
-      const [healthRes, sumRes, newsRes, histRes, fgRes] = await Promise.all([
-        fetch(`${API}/health`),
-        fetch(`${API}/sentiment-summary`),
-        fetch(`${API}/news`),
-        fetch(`${API}/sentiment-history`),
-        fetch(`${API}/fear-greed`),
-      ])
-      setApiConnected(healthRes.ok)
-      const sum = await sumRes.json()
-      const newsData = await newsRes.json()
-      const histData = await histRes.json()
-      const fgData = await fgRes.json()
-      setSummary(sum)
-      setNews(newsData.news || [])
-      setHistory(histData.history || [])
-      setFearGreed(fgData)
-      setError(null)
-      setLastUpdated(new Date())
-    } catch (e) {
-      setApiConnected(false)
-      const isDeployed = typeof window !== 'undefined' && !window.location.hostname.match(/^localhost|127\.0\.0\.1$/)
-      setError(isDeployed
-        ? 'Service is starting up. Please wait 30–60 seconds and refresh.'
-        : 'Could not reach API. Start the backend: ./start.sh or run python api/app.py in a separate terminal.')
-    }
+    const healthRes = await fetch(`${API}/health`)
+    if (!healthRes.ok) throw new Error('Health check failed')
+    setApiConnected(true)
+    setError(null)
+
+    const [sumRes, newsRes, histRes, fgRes] = await Promise.all([
+      fetch(`${API}/sentiment-summary`),
+      fetch(`${API}/news`),
+      fetch(`${API}/sentiment-history`),
+      fetch(`${API}/fear-greed`),
+    ])
+    const sum = await sumRes.json()
+    const newsData = await newsRes.json()
+    const histData = await histRes.json()
+    const fgData = await fgRes.json()
+    setSummary(sum)
+    setNews(newsData.news || [])
+    setHistory(histData.history || [])
+    setFearGreed(fgData)
+    setLastUpdated(new Date())
   }
 
   const runPipeline = async () => {
@@ -360,7 +354,32 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetchData()
+    let cancelled = false
+    const tryConnect = async (attempt = 0) => {
+      if (cancelled) return
+      const isDeployed = !window.location.hostname.match(/^localhost|127\.0\.0\.1$/)
+      const maxAttempts = isDeployed ? 15 : 3
+      try {
+        await fetchData()
+        if (cancelled) return
+        return
+      } catch (e) {
+        if (cancelled) return
+        setApiConnected(false)
+        if (attempt < maxAttempts - 1) {
+          setError(isDeployed
+            ? `Starting up... retrying in a few seconds (${attempt + 1}/${maxAttempts})`
+            : 'Could not reach API. Start the backend.')
+          setTimeout(() => tryConnect(attempt + 1), 5000)
+        } else {
+          setError(isDeployed
+            ? 'Service unavailable. Click Retry or check Render dashboard logs.'
+            : 'Could not reach API. Start the backend: ./start.sh or run python api/app.py')
+        }
+      }
+    }
+    tryConnect()
+    return () => { cancelled = true }
   }, [])
 
   // News auto-refresh every 1 hour
@@ -372,7 +391,7 @@ export default function App() {
   // Retry connection when disconnected
   useEffect(() => {
     if (!apiConnected && !loading) {
-      const id = setInterval(fetchData, 5000)
+      const id = setInterval(() => fetchData().catch(() => {}), 5000)
       return () => clearInterval(id)
     }
   }, [apiConnected, loading])
@@ -399,7 +418,25 @@ export default function App() {
         </div>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && (
+        <div className="error-banner">
+          {error}
+          <button
+            className="retry-btn"
+            onClick={async () => {
+              setError(null)
+              try {
+                await fetchData()
+              } catch {
+                setApiConnected(false)
+                setError('Still unavailable. Check Render logs or try again later.')
+              }
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <main className="main">
         <section className="summary-section">

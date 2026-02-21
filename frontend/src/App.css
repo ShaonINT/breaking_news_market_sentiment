@@ -131,7 +131,25 @@
   font-size: 0.875rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.retry-btn {
+  padding: 0.4rem 1rem;
+  background: var(--negative);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.retry-btn:hover {
+  opacity: 0.9;
 }
 
 /* Main layout */
