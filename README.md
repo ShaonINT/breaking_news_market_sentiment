@@ -1,6 +1,6 @@
 # Breaking News & Market Sentiment Analysis
 
-A full-stack financial sentiment dashboard that aggregates breaking news from multiple sources, analyzes market sentiment using NLP, and correlates it with live market data including S&P 500, Gold, VIX, and Bitcoin.
+A full-stack financial sentiment dashboard that aggregates breaking news, analyzes market sentiment with NLP, and visualizes live market data — S&P 500, Gold, VIX, and Bitcoin.
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://reactjs.org/)
@@ -8,184 +8,103 @@ A full-stack financial sentiment dashboard that aggregates breaking news from mu
 
 ---
 
-## Overview
+## Screenshots
 
-This application provides real-time insights into financial market sentiment by:
-
-- **Aggregating** breaking news from Bloomberg, CNBC, Dow Jones, Yahoo Finance, and Reuters
-- **Analyzing** sentiment using VADER (Valence Aware Dictionary and sEntiment Reasoner)
-- **Tracking** sentiment trends over time with historical snapshots
-- **Visualizing** market data via interactive candlestick charts (S&P 500, Gold, VIX)
-- **Monitoring** the Fear & Greed Index and Bitcoin price
+| Dashboard |
+|-----------|
+| ![Dashboard](screenshots/dashboard.png) |
 
 ---
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **News Extraction** | RSS feeds from major financial outlets — no API key required for core sources |
-| **Sentiment Analysis** | VADER-based analysis with positive/negative/neutral classification |
-| **Market Charts** | S&P 500, Gold (spot), and VIX candlestick charts with 90-day history |
-| **Fear & Greed Index** | Crypto market sentiment gauge (Alternative.me) with fuel-gauge visualization |
-| **BTC Tracker** | Real-time Bitcoin price and 1-day change |
-| **Trend Detection** | Improving, declining, or stable sentiment over time |
-| **NewsAPI Integration** | Optional expansion with additional sources (requires API key) |
+- **News aggregation** — RSS feeds from Bloomberg, CNBC, Reuters, Yahoo Finance, Dow Jones (no API key required)
+- **Sentiment analysis** — VADER-based NLP with positive/negative/neutral classification
+- **Market charts** — Interactive candlestick charts for S&P 500, Gold, and VIX (90-day history)
+- **Fear & Greed Index** — Crypto market sentiment gauge (Alternative.me)
+- **BTC tracker** — Real-time Bitcoin price and 24h change
+- **Trend detection** — Improving, declining, or stable sentiment over time
+- **Optional NewsAPI** — Add more sources with a free API key
 
 ---
 
 ## Tech Stack
 
-- **Backend:** Python 3.10+, Flask, pandas, yfinance, VADER
-- **Frontend:** React 18, Vite, lightweight-charts
-- **Data:** RSS feeds, Yahoo Finance, Alternative.me API
+| Layer | Stack |
+|-------|-------|
+| Backend | Python | Flask | pandas | yfinance | VADER |
+| Frontend | React 18 | Vite | lightweight-charts |
+| Data | RSS feeds | Yahoo Finance | Alternative.me |
 
 ---
 
-## Prerequisites
-
-- Python 3.10 or higher
-- Node.js 18+ (for the web dashboard)
-- pip and npm
-
----
-
-## Installation
-
-### 1. Clone the repository
+## Quick Start
 
 ```bash
+# Clone
 git clone https://github.com/ShaonINT/breaking_news_market_sentiment.git
 cd breaking_news_market_sentiment
-```
 
-### 2. Backend setup
-
-```bash
+# Backend
 python -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
 
-### 3. Frontend setup
+# Frontend
+cd frontend && npm install && cd ..
 
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 4. Environment (optional)
-
-```bash
-cp .env.example .env
-# Add NEWSAPI_KEY to .env for additional news sources
-```
-
----
-
-## Usage
-
-### Web application (recommended)
-
-Start both the API and frontend:
-
-```bash
+# Run
 ./start.sh
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+Open **http://localhost:3000**. Click **Fetch Latest News** to load and analyze articles.
 
-**Manual start (two terminals):**
+### Manual (two terminals)
 
 ```bash
-# Terminal 1 — Flask API (port 5001)
-source venv/bin/activate
+# Terminal 1 — Flask API
 python api/app.py
 
-# Terminal 2 — React frontend
+# Terminal 2 — React dev server
 cd frontend && npm run dev
 ```
 
-### CLI pipeline
-
-Run the news fetch and sentiment analysis pipeline without the UI:
+### Production build (single server)
 
 ```bash
-python main.py
+cd frontend && npm run build && cd ..
+python api/app.py
 ```
 
----
-
-## Project Structure
-
-```
-├── api/
-│   └── app.py              # Flask REST API
-├── frontend/               # React (Vite) dashboard
-│   ├── src/
-│   │   ├── App.jsx         # Main dashboard
-│   │   ├── Sp500Chart.jsx  # S&P 500 candlestick
-│   │   ├── GoldChart.jsx   # Gold candlestick
-│   │   ├── VixChart.jsx    # VIX candlestick
-│   │   └── ...
-│   └── package.json
-├── src/
-│   ├── news_extractor.py   # RSS & NewsAPI fetching
-│   ├── sentiment_analyzer.py
-│   ├── sentiment_tracker.py
-│   ├── market_data.py      # yfinance (S&P, Gold, VIX, BTC)
-│   └── fear_greed.py       # Alternative.me Fear & Greed API
-├── data/                   # Generated at runtime
-│   ├── news_archive.csv
-│   └── sentiment_history.json
-├── main.py                 # CLI entry point
-├── requirements.txt
-├── render.yaml             # Render deployment config
-├── Dockerfile
-└── DEPLOYMENT.md           # Deployment guide
-```
+Open **http://localhost:5001**.
 
 ---
 
 ## Deployment
 
-### Free hosting options
-
-| Platform | Cost | Link |
-|---------|------|------|
-| **Render** | Free tier | [render.com](https://render.com) — use Free instance, not $19 plan |
-| **Koyeb** | Free | [koyeb.com](https://www.koyeb.com) — no credit card |
-| **Railway** | ~$0–1/mo | [railway.app](https://railway.app) — $5 free credit |
-
-### Render (one-click)
+### Render (recommended)
 
 1. Push to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
-3. Connect your repository
-4. **Select Free instance** (avoid $19 Professional upgrade)
-5. Render detects `render.yaml` and deploys automatically
+2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
+3. Connect your repo — Render detects `render.yaml`
+4. Select **Free** instance → **Apply**
+
+Your app: `https://<your-service>.onrender.com`
 
 ### Other options
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Koyeb, Railway, Docker, and VPS deployment instructions.
-
-### Local production build
-
-```bash
-./deploy.sh
-```
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Koyeb, Railway, Docker, and VPS.
 
 ---
 
-## API Endpoints
+## API
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check |
 | `/api/news` | GET | Latest news archive |
-| `/api/sentiment-summary` | GET | Current sentiment summary |
-| `/api/sentiment-history` | GET | Historical sentiment data |
+| `/api/sentiment-summary` | GET | Current sentiment |
+| `/api/sentiment-history` | GET | Historical sentiment |
 | `/api/fear-greed` | GET | Fear & Greed Index |
 | `/api/markets` | GET | S&P 500, Gold, VIX, BTC OHLC |
 | `/api/pipeline/run` | POST | Trigger news fetch & analysis |
@@ -197,32 +116,37 @@ See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Koyeb, Railway, Docker, and VPS deplo
 | Variable | Description |
 |----------|-------------|
 | `PORT` | Server port (default: 5001) |
-| `FLASK_DEBUG` | Set to `true` for debug mode |
-
-### API Keys & Data Sources
-
-| Key | Required | Source | Description |
-|-----|----------|--------|-------------|
-| `NEWSAPI_KEY` | Optional | [newsapi.org](https://newsapi.org) → Get API Key | Additional news sources. Free tier: 100 requests/day. |
-| — | — | RSS feeds (Bloomberg, CNBC, Reuters, etc.) | No key needed |
-| — | — | [Yahoo Finance](https://finance.yahoo.com) (via yfinance) | No key needed — S&P 500, Gold, VIX, BTC |
-| — | — | [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) | No key needed — Fear & Greed Index |
-
-Add keys to `.env`:
+| `NEWSAPI_KEY` | Optional — [newsapi.org](https://newsapi.org) for extra sources |
 
 ```bash
 cp .env.example .env
-# Edit .env and add: NEWSAPI_KEY=your_key_here
+# Add NEWSAPI_KEY=your_key_here
 ```
 
 ---
 
-## Data Outputs
+## Project Structure
 
-| File | Description |
-|------|-------------|
-| `data/news_archive.csv` | Fetched articles with sentiment scores |
-| `data/sentiment_history.json` | Timestamped sentiment snapshots |
+```
+├── api/app.py           # Flask REST API
+├── frontend/            # React (Vite) dashboard
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── Sp500Chart.jsx
+│   │   ├── GoldChart.jsx
+│   │   └── VixChart.jsx
+│   └── package.json
+├── src/
+│   ├── news_extractor.py
+│   ├── sentiment_analyzer.py
+│   ├── sentiment_tracker.py
+│   ├── market_data.py
+│   └── fear_greed.py
+├── main.py              # CLI pipeline
+├── render.yaml          # Render deployment
+├── Dockerfile
+└── DEPLOYMENT.md
+```
 
 ---
 
@@ -232,8 +156,4 @@ MIT
 
 ---
 
-## Author
-
-**Shaon Biswas**
-
-Repository: [github.com/ShaonINT/breaking_news_market_sentiment](https://github.com/ShaonINT/breaking_news_market_sentiment)
+**Shaon Biswas** — [github.com/ShaonINT/breaking_news_market_sentiment](https://github.com/ShaonINT/breaking_news_market_sentiment)
