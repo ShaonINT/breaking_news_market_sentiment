@@ -482,7 +482,12 @@ export default function App() {
         {lastUpdated && (
           <p className="last-updated">Last Updated: {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
         )}
-        <p className="developer-credit">Built by Shaon Biswas</p>
+        <p className="developer-credit">
+          Built by{' '}
+          <a href="https://www.linkedin.com/in/shaonbiswas/" target="_blank" rel="noopener noreferrer" className="developer-link">
+            Shaon Biswas
+          </a>
+        </p>
       </footer>
     </div>
   )
