@@ -177,41 +177,44 @@ docker run -p 5001:5001 breaking-news-sentiment
 
 ---
 
-## Option 6: Fly.io
+## Option 6: Fly.io (Deploy from GitHub)
 
-The repo includes `fly.toml` for Fly.io deployment. **Requires Fly CLI and a paid plan** ($5/mo minimum after trial).
+Push to GitHub → GitHub Actions deploys to Fly.io automatically. **Requires one-time setup** and a paid plan ($5/mo after trial).
 
-### Install Fly CLI
+### One-time setup (run locally once)
 
-```bash
-# macOS/Linux
-curl -L https://fly.io/install.sh | sh
+1. **Install Fly CLI** and sign in:
+   ```bash
+   brew install flyctl   # or: curl -L https://fly.io/install.sh | sh
+   fly auth login
+   ```
 
-# Or with Homebrew
-brew install flyctl
-```
+2. **Create the app** (from your project directory):
+   ```bash
+   fly launch --no-deploy
+   ```
+   Choose a region, confirm settings. This creates the app on Fly.io.
 
-### Deploy
+3. **Get a deploy token**:
+   ```bash
+   fly tokens create deploy -x 999999h
+   ```
+   Copy the full token (including `FlyV1` prefix).
 
-```bash
-# First time: create app and deploy (requires fly auth login)
-fly launch --no-deploy   # Review fly.toml, then:
-fly deploy
+4. **Add token to GitHub**:
+   - Go to your repo → **Settings** → **Secrets and variables** → **Actions**
+   - **New repository secret** → Name: `FLY_API_TOKEN`, Value: (paste token)
 
-# Subsequent deploys
-fly deploy
-```
+### Deploy from GitHub
 
-### First-time setup
+After setup, **every push to `main`** triggers an automatic deploy via GitHub Actions. No need to run `fly deploy` locally.
 
-1. Sign up at [fly.io](https://fly.io)
-2. Run `fly auth login`
-3. Run `fly launch` — it will create the app and prompt for region
-4. Run `fly deploy` to build and deploy
+- Workflow file: `.github/workflows/fly.yml`
+- Watch deploys: repo → **Actions** tab
 
-Your app will be at `https://breaking-news-sentiment.fly.dev` (or your chosen app name).
+Your app: `https://breaking-news-sentiment.fly.dev`
 
-### Optional: set secrets
+### Optional: set secrets on Fly.io
 
 ```bash
 fly secrets set NEWSAPI_KEY=your_key_here
