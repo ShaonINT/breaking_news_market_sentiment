@@ -552,42 +552,39 @@
 }
 
 .fear-greed-value-block {
-  margin-top: -0.5rem;
+  margin-top: -0.25rem;
   display: flex;
-  align-items: baseline;
-  gap: 0.2rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
 
 .fear-greed-value {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
   line-height: 1;
 }
 
-.fear-greed-max {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.fear-greed-classification {
-  font-size: 0.85rem;
+.fear-greed-classification-inline {
+  font-size: 0.95rem;
   font-weight: 600;
-  margin: 0.25rem 0 0.5rem;
-  text-transform: capitalize;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.fear-greed-labels {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 180px;
+.fear-greed-arc-label {
   font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--text-muted);
+  font-weight: 700;
+  fill: white;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+}
+
+.fear-greed-previous {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0;
 }
 
 .fear-greed-source {
