@@ -127,9 +127,9 @@ breaking_news_market_sentiment/
 │   ├── sentiment_analyzer.py   # VADER NLP; headline+summary concat; percentage breakdown aggregation
 │   ├── sentiment_tracker.py    # CSV archive; JSON history (500-snapshot cap); half-split trend detection
 │   ├── market_data.py          # yfinance OHLC; threading lock; MultiIndex handling; Pearson correlation engine
-│   └── fear_greed.py           # Alternative.me API via urllib.request; safe int cast; User-Agent header
+│   ├── fear_greed.py           # Alternative.me API (crypto); stdlib urllib
+│   └── wall_street_fear_greed.py  # RapidAPI (CNN stock index)
 │
-├── main.py                     # CLI pipeline runner (dual-mode: library function + standalone CLI)
 ├── Dockerfile
 ├── render.yaml                 # Render deployment blueprint
 ├── requirements.txt
@@ -230,13 +230,7 @@ python api/app.py
 
 Open **http://localhost:5001**
 
-#### Run pipeline from CLI
-
-```bash
-python main.py
-```
-
-Prints a formatted sentiment report to stdout. Useful for cron scheduling, testing without the web server, or integrating into external workflows.
+To run the pipeline (fetch and analyse news), use the **Fetch Latest News** button in the web UI or `POST /api/pipeline/run`.
 
 ---
 
