@@ -150,16 +150,25 @@ python main.py
 
 ## Deployment
 
+### Free hosting options
+
+| Platform | Cost | Link |
+|---------|------|------|
+| **Render** | Free tier | [render.com](https://render.com) — use Free instance, not $19 plan |
+| **Koyeb** | Free | [koyeb.com](https://www.koyeb.com) — no credit card |
+| **Railway** | ~$0–1/mo | [railway.app](https://railway.app) — $5 free credit |
+
 ### Render (one-click)
 
 1. Push to GitHub
 2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
 3. Connect your repository
-4. Render detects `render.yaml` and deploys automatically
+4. **Select Free instance** (avoid $19 Professional upgrade)
+5. Render detects `render.yaml` and deploys automatically
 
 ### Other options
 
-See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Railway, Docker, and VPS deployment instructions.
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** for Koyeb, Railway, Docker, and VPS deployment instructions.
 
 ### Local production build
 
