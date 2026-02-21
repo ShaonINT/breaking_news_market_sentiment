@@ -25,6 +25,7 @@ from src.sentiment_tracker import (
     save_news,
 )
 from src.fear_greed import fetch_fear_greed
+from src.wall_street_fear_greed import fetch_wall_street_fear_greed
 from src.market_data import fetch_btc_history, fetch_gold_history, fetch_sp500_history, fetch_vix_history, _ohlc_to_list
 
 load_dotenv()
@@ -102,8 +103,17 @@ def get_sentiment_history():
 
 @app.route("/api/fear-greed")
 def get_fear_greed():
-    """Fear & Greed Index from Alternative.me (Crypto)."""
+    """Crypto Fear & Greed Index from Alternative.me."""
     result = fetch_fear_greed()
+    resp = jsonify(result)
+    resp.headers["Cache-Control"] = "no-store, no-cache, max-age=300"
+    return resp
+
+
+@app.route("/api/wall-street-fear-greed")
+def get_wall_street_fear_greed():
+    """Wall Street (CNN) Fear & Greed Index via RapidAPI. Requires RAPIDAPI_KEY."""
+    result = fetch_wall_street_fear_greed()
     resp = jsonify(result)
     resp.headers["Cache-Control"] = "no-store, no-cache, max-age=300"
     return resp

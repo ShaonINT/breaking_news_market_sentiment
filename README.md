@@ -40,7 +40,8 @@ Built as a full-stack application with a Flask REST API backend and a React 18 /
 - **Trend detection** — Half-split algorithm classifies sentiment trajectory as improving, declining, or stable over the last 24 snapshots
 - **Persistent history** — CSV news archive (deduplicated on title + source + URL) and rolling 500-snapshot JSON sentiment history
 - **Interactive market charts** — Financial-grade candlestick charts for S&P 500, Gold, and VIX with 90-day OHLC data via lightweight-charts
-- **Fear & Greed Index** — Live crypto market sentiment gauge via Alternative.me (zero extra dependencies — uses stdlib `urllib.request`)
+- **Crypto Fear & Greed** — Live crypto market sentiment via Alternative.me (no API key)
+- **Wall Street Fear & Greed** — CNN stock market sentiment via RapidAPI (optional `RAPIDAPI_KEY`)
 - **BTC tracker** — Real-time Bitcoin price with 90-day OHLC history
 - **Correlation engine** — Same-day and lag-1 Pearson correlation between sentiment time series and S&P 500 daily returns
 - **Optional NewsAPI integration** — Expand news sources with a free NewsAPI key; `[Removed]` articles automatically filtered
@@ -54,7 +55,8 @@ Built as a full-stack application with a Flask REST API backend and a React 18 /
 | Backend | Python 3.10+, Flask 3.0 |
 | NLP | VADER (vaderSentiment) |
 | Market Data | yfinance (S&P 500, Gold, VIX, BTC) |
-| Fear & Greed | Alternative.me API (via stdlib `urllib.request`) |
+| Crypto Fear & Greed | Alternative.me (stdlib) |
+| Wall Street Fear & Greed | RapidAPI (optional) |
 | News Ingestion | feedparser (RSS), NewsAPI (optional) |
 | Frontend | React 18.3, Vite 5.4 |
 | Charts | lightweight-charts 4.2 |
@@ -266,6 +268,7 @@ For Koyeb, Railway, or VPS deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
 |----------|----------|-------------|
 | `PORT` | No | Server port (default: `5001`) |
 | `NEWSAPI_KEY` | No | Free API key from [newsapi.org](https://newsapi.org) for expanded news coverage |
+| `RAPIDAPI_KEY` | No | RapidAPI key for Wall Street (CNN) Fear & Greed Index; subscribe to [Fear & Greed API](https://rapidapi.com/rpi4gx/api/fear-and-greed-index) |
 | `FLASK_DEBUG` | No | Set to `true` to enable Flask debug mode |
 
 ---

@@ -483,14 +483,21 @@
   gap: 1rem;
 }
 
-.fear-greed-btc-row {
+.fear-greed-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
+.fear-greed-btc-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
 @media (max-width: 600px) {
-  .fear-greed-btc-row {
+  .fear-greed-row {
     grid-template-columns: 1fr;
   }
 }

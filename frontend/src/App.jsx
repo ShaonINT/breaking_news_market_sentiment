@@ -161,14 +161,17 @@ function SentimentYesterdayVsToday({ history }) {
   )
 }
 
-function FearGreedCard({ fearGreed }) {
+function FearGreedCard({ fearGreed, title, source }) {
   if (!fearGreed || fearGreed.error) {
+    const msg = fearGreed?.error === 'no_api_key'
+      ? 'Set RAPIDAPI_KEY to enable'
+      : fearGreed?.error
+        ? `Unable to fetch: ${fearGreed.error}`
+        : 'Loading…'
     return (
       <div className="correlation-card fear-greed-card">
-        <h3>Fear & Greed Index</h3>
-        <p className="correlation-empty">
-          {fearGreed?.error ? `Unable to fetch: ${fearGreed.error}` : 'Loading…'}
-        </p>
+        <h3>{title}</h3>
+        <p className="correlation-empty">{msg}</p>
       </div>
     )
   }
@@ -195,7 +198,7 @@ function FearGreedCard({ fearGreed }) {
 
   return (
     <div className="correlation-card fear-greed-card">
-      <h3>Fear & Greed Index</h3>
+      <h3>{title}</h3>
       <div className="fear-greed-gauge-wrap">
         <svg viewBox="0 0 120 85" className="fear-greed-svg">
           <defs>
@@ -263,7 +266,7 @@ function FearGreedCard({ fearGreed }) {
           </p>
         )}
       </div>
-      <p className="fear-greed-source">Alternative.me · Crypto</p>
+      <p className="fear-greed-source">{source}</p>
     </div>
   )
 }
@@ -311,6 +314,7 @@ export default function App() {
   const [news, setNews] = useState([])
   const [history, setHistory] = useState([])
   const [fearGreed, setFearGreed] = useState(null)
+  const [wallStreetFearGreed, setWallStreetFearGreed] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -334,20 +338,23 @@ export default function App() {
     setApiConnected(true)
     setError(null)
 
-    const [sumRes, newsRes, histRes, fgRes] = await Promise.all([
+    const [sumRes, newsRes, histRes, fgRes, wsFgRes] = await Promise.all([
       fetch(`${API}/sentiment-summary`),
       fetch(`${API}/news`),
       fetch(`${API}/sentiment-history`),
       fetch(`${API}/fear-greed`),
+      fetch(`${API}/wall-street-fear-greed`),
     ])
     const sum = await sumRes.json()
     const newsData = await newsRes.json()
     const histData = await histRes.json()
     const fgData = await fgRes.json()
+    const wsFgData = await wsFgRes.json()
     setSummary(sum)
     setNews(newsData.news || [])
     setHistory(histData.history || [])
     setFearGreed(fgData)
+    setWallStreetFearGreed(wsFgData)
     setLastUpdated(new Date())
   }
 
@@ -477,8 +484,11 @@ export default function App() {
         <SentimentYesterdayVsToday history={history} />
 
         <section className="correlation-section">
+          <div className="fear-greed-row">
+            <FearGreedCard fearGreed={fearGreed} title="Crypto Fear & Greed" source="Alternative.me · Crypto" />
+            <FearGreedCard fearGreed={wallStreetFearGreed} title="Wall Street Fear & Greed" source="CNN · RapidAPI" />
+          </div>
           <div className="fear-greed-btc-row">
-            <FearGreedCard fearGreed={fearGreed} />
             <BtcTrackerCard btcData={markets.btc_data} />
           </div>
           <p className="refresh-hint">Trackers refresh every 15 min · News every 1 hr</p>
