@@ -30,23 +30,23 @@ function SentimentGauge({ summary }) {
   if (!summary || summary.error) return null
   const score = summary.overall_score ?? 0
   const label = (summary.sentiment_label || 'neutral').toUpperCase()
-  const pct = (score + 1) / 2 * 100
-  const color = score >= 0.05 ? '#86efac' : score <= -0.05 ? '#fca5a5' : '#bef264'
+  const displayLabel = label === 'POSITIVE' ? 'BULLISH' : label === 'NEGATIVE' ? 'BEARISH' : 'NEUTRAL'
+  const pct = Math.round((score + 1) / 2 * 100)
+  const color = score >= 0.05 ? '#22c55e' : score <= -0.05 ? '#ef4444' : '#eab308'
 
   return (
     <div className="gauge-card">
       <h3>Market Sentiment</h3>
-      <div className="gauge">
-        <div className="gauge-track">
-          <div className="gauge-fill" style={{ width: `${pct}%`, background: color }} />
+      <div className="gauge-bullish-wrap">
+        <div className="gauge-track gradient-track">
+          <div className="gauge-needle" style={{ left: `${pct}%`, borderColor: color }} />
         </div>
-        <div className="gauge-labels">
-          <span>Negative</span>
-          <span className="gauge-value" style={{ color }}>{score.toFixed(2)}</span>
-          <span>Positive</span>
+        <div className="gauge-bullish-value">
+          <span className="sentiment-label" style={{ color }}>{displayLabel}</span>
+          <span className="gauge-value" style={{ color }}>{pct}/100</span>
         </div>
       </div>
-      <p className="sentiment-label" style={{ color }}>{label}</p>
+      <p className="aggregated-label">Aggregated Sentiment Score</p>
       <div className="stats-row">
         <span className="stat positive">{summary.positive_pct}% positive</span>
         <span className="stat neutral">{summary.neutral_pct}% neutral</span>
@@ -62,25 +62,57 @@ function TrendBadge({ trend }) {
   return <span className={`trend-badge ${cls}`}>{trend}</span>
 }
 
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now - d
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  if (diffMins < 60) return `${diffMins} min ago`
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+  return d.toLocaleDateString()
+}
+
 function NewsList({ news }) {
   if (!news?.length) return <p className="empty">No news yet. Run the pipeline to fetch articles.</p>
+  const sentimentEmoji = (label) => {
+    if (label === 'positive') return '😊'
+    if (label === 'negative') return '☹'
+    return '😐'
+  }
   return (
-    <ul className="news-list">
-      {news.slice(0, 30).map((article, i) => (
-        <li key={i} className="news-item">
-          <div className="news-meta">
-            <span className="news-source">{article.source}</span>
-            {article.sentiment_label && (
-              <span className={`sentiment-dot ${article.sentiment_label}`} title={article.sentiment_label} />
-            )}
-          </div>
-          <a href={article.url} target="_blank" rel="noopener noreferrer" className="news-title">
-            {article.title}
-          </a>
-          {article.summary && <p className="news-summary">{article.summary}</p>}
-        </li>
-      ))}
-    </ul>
+    <div className="news-table-wrap">
+      <table className="news-table">
+        <thead>
+          <tr>
+            <th>Headline</th>
+            <th>Source</th>
+            <th>Time</th>
+            <th>Sentiment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {news.slice(0, 30).map((article, i) => (
+            <tr key={i}>
+              <td>
+                <a href={article.url} target="_blank" rel="noopener noreferrer" className="news-title">
+                  {article.title}
+                </a>
+              </td>
+              <td className="news-source-cell">{article.source}</td>
+              <td className="news-time-cell">{formatTimeAgo(article.published_at)}</td>
+              <td>
+                <span className={`sentiment-badge ${article.sentiment_label || 'neutral'}`}>
+                  {(article.sentiment_label || 'neutral').charAt(0).toUpperCase() + (article.sentiment_label || 'neutral').slice(1)}
+                  {' '}{sentimentEmoji(article.sentiment_label || 'neutral')}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -244,10 +276,12 @@ function BtcTrackerCard({ btcData }) {
 
   return (
     <div className="correlation-card btc-tracker-card">
-      <h3>BTC Tracker</h3>
+      <h3>
+        <span className="btc-logo">₿</span> BTC Tracker
+      </h3>
       <p className="btc-price">{fmt(price)}</p>
       <p className={`btc-change ${isUp ? 'up' : 'down'}`}>
-        {isUp ? '↑' : '↓'} {Math.abs(changePct).toFixed(2)}% (1d)
+        {isUp ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}% (24h)
       </p>
       <p className="btc-label">Bitcoin (BTC-USD)</p>
     </div>
@@ -264,6 +298,7 @@ export default function App() {
   const [error, setError] = useState(null)
 
   const [apiConnected, setApiConnected] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const markets = useMarkets()
 
   const fetchNews = async () => {
@@ -295,6 +330,7 @@ export default function App() {
       setHistory(histData.history || [])
       setFearGreed(fgData)
       setError(null)
+      setLastUpdated(new Date())
     } catch (e) {
       setApiConnected(false)
       setError('Could not reach API. Start the backend: ./start.sh or run python api/app.py in a separate terminal.')
@@ -341,19 +377,23 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className={`api-status ${apiConnected ? 'connected' : 'disconnected'}`}>
-          <span className="status-dot" />
-          {apiConnected ? 'API connected' : 'API disconnected'}
+        <div className="header-left">
+          <h1>Breaking News & Sentiment Analysis</h1>
+          <p className="subtitle">Financial market sentiment from breaking news</p>
         </div>
-        <h1>Breaking News & Sentiment Analysis</h1>
-        <p className="subtitle">Financial market sentiment from breaking news</p>
-        <button
-          className="run-btn"
-          onClick={runPipeline}
-          disabled={loading}
-        >
-          {loading ? 'Fetching & analyzing…' : 'Fetch Latest News'}
-        </button>
+        <div className="header-right">
+          <div className={`api-status ${apiConnected ? 'connected' : 'disconnected'}`}>
+            <span className="status-dot" />
+            {apiConnected ? 'API connected' : 'API disconnected'}
+          </div>
+          <button
+            className="run-btn"
+            onClick={runPipeline}
+            disabled={loading}
+          >
+            {loading ? 'Fetching & analyzing…' : 'Fetch Latest News'}
+          </button>
+        </div>
       </header>
 
       {error && <div className="error-banner">{error}</div>}
@@ -392,6 +432,9 @@ export default function App() {
       </main>
 
       <footer className="footer">
+        {lastUpdated && (
+          <p className="last-updated">Last Updated: {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+        )}
         <p className="developer-credit">Built by Shaon Biswas</p>
       </footer>
     </div>

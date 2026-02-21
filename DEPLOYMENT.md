@@ -177,11 +177,38 @@ docker run -p 5001:5001 breaking-news-sentiment
 
 ---
 
-## Option 6: Fly.io (Deploy from GitHub)
+## Option 6: Fly.io
+
+### If "Deploy from GitHub" in the dashboard fails
+
+The Fly.io dashboard "Deploy from GitHub" often shows **"Failed to create app. Please try again"** with no details. Common causes:
+
+1. **App name taken** — The name `breaking-news-sentiment` may already exist. Use a unique name in `fly.toml` (e.g. `breaking-news-sentiment-yourname`).
+2. **Credit card required** — Add a card in [Fly.io Billing](https://fly.io/dashboard/personal/billing) even for the free trial.
+3. **Use the CLI instead** — The CLI gives clearer errors and is more reliable (see below).
+
+### Deploy via CLI (recommended)
+
+**Option A: Deploy directly from your computer (no GitHub Actions)**
+
+```bash
+# Install Fly CLI
+brew install flyctl   # or: curl -L https://fly.io/install.sh | sh
+
+# Sign in
+fly auth login
+
+# From your project directory, create app and deploy
+fly launch
+```
+
+When prompted, choose a region and confirm. If it asks about an existing app, say no to create a new one. Your app will be at `https://<app-name>.fly.dev` (the name in `fly.toml`).
+
+**Option B: GitHub Actions (auto-deploy on push)**
 
 Push to GitHub → GitHub Actions deploys to Fly.io automatically. **Requires one-time setup** and a paid plan ($5/mo after trial).
 
-### One-time setup (run locally once)
+### One-time setup for GitHub Actions (run locally once)
 
 1. **Install Fly CLI** and sign in:
    ```bash
@@ -212,7 +239,7 @@ After setup, **every push to `main`** triggers an automatic deploy via GitHub Ac
 - Workflow file: `.github/workflows/fly.yml`
 - Watch deploys: repo → **Actions** tab
 
-Your app: `https://breaking-news-sentiment.fly.dev`
+Your app: `https://breaking-news-sentiment.fly.dev` (or the app name in `fly.toml`)
 
 ### Optional: set secrets on Fly.io
 

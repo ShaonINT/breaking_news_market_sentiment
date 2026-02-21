@@ -12,12 +12,12 @@ export default function Sp500Chart({ data = [] }) {
     const width = containerRef.current.clientWidth || 600
 
     const chart = createChart(containerRef.current, {
-      layout: { background: { color: 'transparent' }, textColor: '#64748b' },
-      grid: { vertLines: { color: '#e2e8f0' }, horzLines: { color: '#e2e8f0' } },
+      layout: { background: { color: 'transparent' }, textColor: '#94a3b8' },
+      grid: { vertLines: { color: '#334155' }, horzLines: { color: '#334155' } },
       width,
       height: 260,
-      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#e2e8f0' },
-      rightPriceScale: { borderColor: '#e2e8f0', scaleMargins: { top: 0.1, bottom: 0.1 } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#334155' },
+      rightPriceScale: { borderColor: '#334155', scaleMargins: { top: 0.1, bottom: 0.1 } },
     })
     chartRef.current = chart
 

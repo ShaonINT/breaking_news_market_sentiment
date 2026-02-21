@@ -1,6 +1,8 @@
 venv/
 .venv/
 node_modules/
+frontend/.vite/
+capture_screenshots.py
 frontend/dist/
 __pycache__/
 *.pyc
