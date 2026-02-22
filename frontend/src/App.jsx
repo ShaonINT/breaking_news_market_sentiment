@@ -316,6 +316,206 @@ function BtcTrackerCard({ btcData }) {
 }
 
 
+function CorrelationHeatmap({ apiBase }) {
+  const [data, setData] = useState(null)
+  const [activePeriod, setActivePeriod] = useState('7d')
+  const [snapshotMsg, setSnapshotMsg] = useState(null)
+  const [snapshotLoading, setSnapshotLoading] = useState(false)
+  const canvasRef = useRef(null)
+
+  const fetchMatrix = () => {
+    fetch(`${apiBase}/correlation-matrix`)
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => {})
+  }
+
+  useEffect(() => { fetchMatrix() }, [apiBase])
+
+  const triggerSnapshot = async () => {
+    setSnapshotLoading(true)
+    setSnapshotMsg(null)
+    try {
+      const res = await fetch(`${apiBase}/snapshot/run`, { method: 'POST' })
+      const j = await res.json()
+      if (j.error) {
+        setSnapshotMsg(j.message || j.error)
+      } else {
+        setSnapshotMsg(`Snapshot saved for ${j.snapshot?.date || 'today'}`)
+        fetchMatrix()
+      }
+    } catch {
+      setSnapshotMsg('Failed to trigger snapshot')
+    } finally {
+      setSnapshotLoading(false)
+    }
+  }
+
+  const period = data?.periods?.find((p) => p.key === activePeriod) || data?.periods?.[0]
+  const matrix = period?.matrix || {}
+  const categories = period?.categories || []
+  const indicators = data?.indicators || []
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !categories.length || !indicators.length) return
+
+    const ctx = canvas.getContext('2d')
+    const dpr = window.devicePixelRatio || 1
+
+    const labelW = 140
+    const cellW = 68
+    const cellH = 36
+    const headerH = 60
+    const totalW = labelW + indicators.length * cellW
+    const totalH = headerH + categories.length * cellH
+
+    canvas.width = totalW * dpr
+    canvas.height = totalH * dpr
+    canvas.style.width = totalW + 'px'
+    canvas.style.height = totalH + 'px'
+    ctx.scale(dpr, dpr)
+
+    ctx.clearRect(0, 0, totalW, totalH)
+    ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif'
+
+    ctx.save()
+    indicators.forEach((ind, ci) => {
+      const x = labelW + ci * cellW + cellW / 2
+      ctx.save()
+      ctx.translate(x, headerH - 6)
+      ctx.rotate(-Math.PI / 6)
+      ctx.fillStyle = '#94a3b8'
+      ctx.textAlign = 'left'
+      ctx.font = '600 10px -apple-system, BlinkMacSystemFont, sans-serif'
+      ctx.fillText(ind, 0, 0)
+      ctx.restore()
+    })
+    ctx.restore()
+
+    categories.forEach((cat, ri) => {
+      const y = headerH + ri * cellH
+      const isOverall = cat === 'Overall Sentiment'
+
+      ctx.fillStyle = isOverall ? '#94a3b8' : '#64748b'
+      ctx.textAlign = 'left'
+      ctx.font = isOverall ? 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif' : '500 11px -apple-system, BlinkMacSystemFont, sans-serif'
+      ctx.fillText(cat.length > 18 ? cat.slice(0, 17) + '...' : cat, 4, y + cellH / 2 + 4)
+
+      indicators.forEach((ind, ci) => {
+        const x = labelW + ci * cellW
+        const val = matrix[cat]?.[ind]
+
+        let bg = '#1e293b'
+        let textColor = '#64748b'
+        if (val != null) {
+          const v = Math.max(-1, Math.min(1, val))
+          if (v > 0) {
+            const a = Math.min(v * 0.85, 0.75)
+            bg = `rgba(34, 197, 94, ${a})`
+            textColor = a > 0.3 ? '#fff' : '#e2e8f0'
+          } else if (v < 0) {
+            const a = Math.min(Math.abs(v) * 0.85, 0.75)
+            bg = `rgba(239, 68, 68, ${a})`
+            textColor = a > 0.3 ? '#fff' : '#e2e8f0'
+          }
+        }
+
+        ctx.fillStyle = bg
+        ctx.beginPath()
+        if (ctx.roundRect) {
+          ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 4)
+        } else {
+          ctx.rect(x + 1, y + 1, cellW - 2, cellH - 2)
+        }
+        ctx.fill()
+
+        ctx.fillStyle = textColor
+        ctx.textAlign = 'center'
+        ctx.font = '600 12px "JetBrains Mono", monospace'
+        ctx.fillText(val != null ? val.toFixed(2) : '—', x + cellW / 2, y + cellH / 2 + 4)
+      })
+    })
+
+    if (categories.includes('Overall Sentiment')) {
+      const overallIdx = categories.indexOf('Overall Sentiment')
+      const lineY = headerH + overallIdx * cellH
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(0, lineY)
+      ctx.lineTo(totalW, lineY)
+      ctx.stroke()
+    }
+  }, [data, activePeriod, categories, indicators, matrix])
+
+  if (!data || !data.periods?.length) {
+    const msg = data?.message || 'Run the pipeline daily to start building correlation data.'
+    return (
+      <div className="chart-card heatmap-card">
+        <div className="heatmap-header">
+          <h3>Correlation Heatmap</h3>
+          <button className="snapshot-btn" onClick={triggerSnapshot} disabled={snapshotLoading}>
+            {snapshotLoading ? 'Saving...' : 'Save Snapshot Now'}
+          </button>
+        </div>
+        <p className="correlation-empty">{msg}</p>
+        {snapshotMsg && <p className="snapshot-msg">{snapshotMsg}</p>}
+      </div>
+    )
+  }
+
+  const { periods, data_start, total_days } = data
+  const days_available = period?.days_available || 0
+
+  return (
+    <div className="chart-card heatmap-card">
+      <div className="heatmap-header">
+        <div>
+          <h3>Correlation Heatmap</h3>
+          <p className="heatmap-subtitle">
+            {data_start && <>Since <strong>{data_start}</strong> &middot; </>}
+            {total_days} day(s) of data
+            {days_available > 0 && <> &middot; {days_available} in period</>}
+          </p>
+        </div>
+        <button className="snapshot-btn" onClick={triggerSnapshot} disabled={snapshotLoading}>
+          {snapshotLoading ? 'Saving...' : 'Save Snapshot Now'}
+        </button>
+      </div>
+
+      <div className="heatmap-period-tabs">
+        {periods.map((p) => (
+          <button
+            key={p.key}
+            className={`corr-period-tab ${activePeriod === p.key ? 'active' : ''}`}
+            onClick={() => setActivePeriod(p.key)}
+          >
+            {p.label}
+            {p.days_available > 0 && <span className="corr-tab-days">{p.days_available}d</span>}
+          </button>
+        ))}
+      </div>
+
+      {categories.length > 0 ? (
+        <div className="heatmap-canvas-wrap">
+          <canvas ref={canvasRef} className="heatmap-canvas" />
+        </div>
+      ) : (
+        <p className="correlation-empty corr-no-period-data">No data for this period yet.</p>
+      )}
+
+      <div className="heatmap-legend">
+        <span className="heatmap-leg-neg">-1.0</span>
+        <div className="heatmap-gradient" />
+        <span className="heatmap-leg-pos">+1.0</span>
+      </div>
+      {snapshotMsg && <p className="snapshot-msg">{snapshotMsg}</p>}
+    </div>
+  )
+}
+
+
 function CorrelationMatrix({ apiBase }) {
   const [data, setData] = useState(null)
   const [activePeriod, setActivePeriod] = useState('7d')
@@ -675,6 +875,7 @@ export default function App() {
         </section>
 
         <section className="correlation-matrix-section">
+          <CorrelationHeatmap apiBase={API} />
           <CorrelationMatrix apiBase={API} />
         </section>
 

@@ -687,6 +687,109 @@
   margin: 0.35rem 0 0;
 }
 
+/* Correlation Heatmap */
+.heatmap-card {
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.heatmap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.heatmap-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.heatmap-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.heatmap-subtitle strong {
+  color: var(--accent);
+}
+
+.heatmap-period-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.heatmap-canvas-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.25rem 0;
+}
+
+.heatmap-canvas {
+  display: block;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.heatmap-gradient {
+  flex: 1;
+  max-width: 200px;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.7), rgba(239, 68, 68, 0.15), transparent, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.7));
+}
+
+.heatmap-leg-neg {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.heatmap-leg-pos {
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.snapshot-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.snapshot-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.snapshot-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.snapshot-msg {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0 0;
+}
+
 /* Correlation Matrix */
 .correlation-matrix-section {
   margin-top: 1.5rem;

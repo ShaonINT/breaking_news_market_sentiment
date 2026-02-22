@@ -220,6 +220,23 @@ def get_daily_tracker():
     return jsonify({"data": _clean_for_json(records), "count": len(records)})
 
 
+@app.route("/api/snapshot/run", methods=["POST"])
+def run_snapshot_endpoint():
+    """Manually trigger a daily tracker snapshot (for bootstrapping correlation data)."""
+    try:
+        history = load_sentiment_history(DATA_DIR)
+        if not history:
+            return jsonify({"error": "no_sentiment", "message": "Run the news pipeline first to generate sentiment data."})
+
+        df = load_news(DATA_DIR)
+        summary = history[-1]
+        news_df = df if not df.empty and "sentiment_compound" in df.columns else None
+        snapshot = collect_daily_snapshot(summary, DATA_DIR, news_df=news_df)
+        return jsonify({"status": "ok", "snapshot": _clean_for_json(snapshot)})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 @app.route("/api/correlation-matrix")
 def get_correlation_matrix():
     """Correlation matrix: news source sentiment vs market indicators."""
