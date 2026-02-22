@@ -51,32 +51,23 @@ CRAMER_KEYWORDS = re.compile(r"\b(cramer|mad money)\b", re.I)
 # Trump tweet / social content (boost when available)
 TRUMP_KEYWORDS = re.compile(r"\b(trump|trump's|trump tweet)\b", re.I)
 
-# Truth Social posts are high-volume (~20-30/day); only keep market-moving topics
-TRUTH_SOCIAL_KEYWORDS = re.compile(
-    r"\b(tariff|tariffs|trade war|trade deal|import|export|duties|"
-    r"war|attack|military|missile|bomb|strike|conflict|defense|"
-    r"politic|congress|senate|legislation|executive order|"
-    r"geopolit|nato|ally|allies|sanction|"
-    r"china|chinese|beijing|xi jinping|"
-    r"india|modi|"
-    r"iran|iranian|tehran|"
-    r"greenland|arctic|"
-    r"europe|european|eu\b|brussels|"
-    r"uk\b|britain|british|london|"
-    r"epstein|"
-    r"midterm|mid-term|election|vote|ballot|"
-    r"fed\b|federal reserve|interest rate|powell|fed chair|"
-    r"crypto|bitcoin|btc|digital asset|"
-    r"rare earth|mineral|lithium|cobalt)\b",
+# Truth Social: only reject truly irrelevant posts (pure retweets with no text,
+# birthday wishes, etc.). Keep everything else — all Trump posts are market-relevant.
+TRUTH_SOCIAL_REJECT = re.compile(
+    r"^(happy birthday|happy anniversary|rest in peace|rip\b|merry christmas|"
+    r"happy new year|happy thanksgiving|happy easter|happy mother|happy father|"
+    r"happy valentine)",
     re.I,
 )
 
 
 def _is_relevant_truth_social(text: str) -> bool:
-    """Truth Social posts must match specific high-impact topics."""
+    """Accept all Trump posts except pure holiday/birthday greetings."""
     if not text or not isinstance(text, str):
         return False
-    return bool(TRUTH_SOCIAL_KEYWORDS.search(text))
+    if len(text.strip()) < 15:
+        return False
+    return not TRUTH_SOCIAL_REJECT.search(text.strip())
 
 
 # News type classification for supervised learning labels
@@ -194,9 +185,15 @@ def _content_boost(title: str, summary: str) -> int:
     return boost
 
 
+def _is_trump_source(source: str) -> bool:
+    s = (source or "").lower()
+    return "truth social" in s or "trump" in s
+
+
 def filter_and_rank_news(df: pd.DataFrame) -> pd.DataFrame:
     """
     Filter to financial/political news only, prefer specified sources.
+    Trump posts bypass the general relevance filter (they're always relevant).
     Returns sorted DataFrame (highest priority first).
     """
     if df.empty:
@@ -204,21 +201,26 @@ def filter_and_rank_news(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.copy()
 
-    def _relevance(row):
-        text = f"{row.get('title', '')} {row.get('summary', '')}"
-        return _is_relevant(text)
+    # Split: Trump posts vs everything else
+    trump_mask = df["source"].apply(_is_trump_source)
+    trump_df = df[trump_mask].copy()
+    other_df = df[~trump_mask].copy()
 
-    df["_relevant"] = df.apply(_relevance, axis=1)
-    df = df[df["_relevant"]].drop(columns=["_relevant"], errors="ignore")
-
-    # Truth Social posts: only keep those matching high-impact topic keywords
-    truth_mask = df["source"].str.contains("Truth Social", case=False, na=False)
-    if truth_mask.any():
-        truth_relevant = df[truth_mask].apply(
-            lambda r: _is_relevant_truth_social(f"{r.get('title', '')} {r.get('summary', '')}"),
-            axis=1,
+    # General news: require financial or political keywords
+    if not other_df.empty:
+        other_df["_relevant"] = other_df.apply(
+            lambda r: _is_relevant(f"{r.get('title', '')} {r.get('summary', '')}"), axis=1
         )
-        df = df[~truth_mask | truth_relevant]
+        other_df = other_df[other_df["_relevant"]].drop(columns=["_relevant"], errors="ignore")
+
+    # Trump posts: light filter (reject birthday/holiday only)
+    if not trump_df.empty:
+        trump_df["_relevant"] = trump_df.apply(
+            lambda r: _is_relevant_truth_social(f"{r.get('title', '')} {r.get('summary', '')}"), axis=1
+        )
+        trump_df = trump_df[trump_df["_relevant"]].drop(columns=["_relevant"], errors="ignore")
+
+    df = pd.concat([trump_df, other_df], ignore_index=True)
 
     if df.empty:
         return df

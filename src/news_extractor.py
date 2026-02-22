@@ -28,11 +28,11 @@ RSS_FEEDS = [
     ("ABC Politics", "https://abcnews.go.com/abcnews/politicsheadlines"),
 ]
 
-# Trump Truth Social RSS feeds (multiple sources for reliability)
+# Trump Truth Social RSS feeds (primary + fallbacks)
 TRUMP_RSS_FEEDS = [
     ("Trump (Truth Social)", "https://trumpstruth.org/feed"),
+    ("Trump (Truth Social)", "https://trumptruthsocial.com/feed"),
     ("Trump (Truth Social)", "https://rss.app/feeds/v1.1/tsLBMEFKpRdTuPFi.json"),
-    ("Trump (Truth Social)", "https://truthsocial.com/@realDonaldTrump.rss"),
 ]
 
 RSS_TIMEOUT = 15
@@ -82,6 +82,14 @@ def fetch_rss_feed(source_name: str, url: str) -> list[dict]:
     return articles
 
 
+def _clean_html(text: str) -> str:
+    """Strip HTML tags and collapse whitespace."""
+    import re
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def fetch_trump_truth_social() -> list[dict]:
     """Fetch Trump Truth Social posts from multiple RSS sources for reliability."""
     articles = []
@@ -89,20 +97,26 @@ def fetch_trump_truth_social() -> list[dict]:
         try:
             feed = _fetch_rss_raw(url)
             if not feed.entries:
+                print(f"[Trump RSS] No entries from {url}")
                 continue
 
-            for entry in feed.entries[:20]:
-                title = entry.get("title", "")
-                if not title or len(title.strip()) < 10:
-                    title = entry.get("summary", entry.get("description", ""))[:200]
+            for entry in feed.entries[:25]:
+                raw_title = entry.get("title", "") or ""
+                raw_summary = entry.get("summary", entry.get("description", "")) or ""
+                clean_summary = _clean_html(raw_summary)
+
+                # Use title if available; fall back to first 200 chars of summary
+                title = raw_title.strip()
+                if not title or len(title) < 10 or title.startswith("[No Title]"):
+                    title = clean_summary[:200]
                 if not title or len(title.strip()) < 10:
                     continue
 
                 published = _parse_published(entry)
                 articles.append({
                     "source": "Trump (Truth Social)",
-                    "title": title.strip()[:200],
-                    "summary": entry.get("summary", entry.get("description", ""))[:500],
+                    "title": title[:300],
+                    "summary": clean_summary[:500],
                     "url": entry.get("link", ""),
                     "published_at": published,
                     "fetched_at": _utcnow(),
@@ -115,6 +129,8 @@ def fetch_trump_truth_social() -> list[dict]:
             print(f"[Trump RSS] Failed {url}: {e}")
             continue
 
+    if not articles:
+        print("[Trump RSS] WARNING: All sources failed — no Trump posts fetched")
     return articles
 
 
