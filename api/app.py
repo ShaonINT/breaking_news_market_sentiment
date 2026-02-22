@@ -2,6 +2,8 @@
 
 import math
 import os
+import threading
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -9,7 +11,6 @@ import pandas as pd
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-# Add project root to path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -35,6 +36,41 @@ from src.daily_tracker import collect_daily_snapshot, load_daily_tracker, comput
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Server-side cache for market trackers (refreshed every 15 min by scheduler)
+# ---------------------------------------------------------------------------
+_cache_lock = threading.Lock()
+_market_cache = {
+    "markets": {"sp500_data": [], "gold_data": [], "vix_data": [], "btc_data": []},
+    "fear_greed": {},
+    "wall_street_fear_greed": {},
+    "last_updated": None,
+}
+
+
+def _refresh_market_cache():
+    """Fetch all market trackers + F&G indices and update the in-memory cache."""
+    try:
+        sp500_df = fetch_sp500_history(days=90)
+        gold_df = fetch_gold_history(days=90)
+        vix_df = fetch_vix_history(days=90)
+        btc_df = fetch_btc_history(days=90)
+        fg = fetch_fear_greed()
+        ws_fg = fetch_wall_street_fear_greed()
+        with _cache_lock:
+            _market_cache["markets"] = {
+                "sp500_data": _ohlc_to_list(sp500_df),
+                "gold_data": _ohlc_to_list(gold_df),
+                "vix_data": _ohlc_to_list(vix_df),
+                "btc_data": _ohlc_to_list(btc_df),
+            }
+            _market_cache["fear_greed"] = fg
+            _market_cache["wall_street_fear_greed"] = ws_fg
+            _market_cache["last_updated"] = datetime.utcnow().isoformat() + "Z"
+        print(f"[Market cache] Refreshed at {_market_cache['last_updated']}")
+    except Exception as e:
+        print(f"[Market cache] Refresh failed: {e}")
+
 # Use DATA_DIR env var if set (e.g. Render disk mount path). Default: project/data
 _data_dir = os.getenv("DATA_DIR")
 DATA_DIR = Path(_data_dir) if _data_dir else Path(__file__).resolve().parent.parent / "data"
@@ -43,7 +79,7 @@ CORS(app)
 
 
 def run_pipeline(use_news_api: bool = False) -> dict:
-    """Run full pipeline and return summary."""
+    """Run news pipeline: fetch, filter, analyze, save. Runs every hour."""
     if use_news_api and os.getenv("NEWSAPI_KEY"):
         df = fetch_news_api(os.getenv("NEWSAPI_KEY"))
         if df.empty:
@@ -54,8 +90,6 @@ def run_pipeline(use_news_api: bool = False) -> dict:
     if df.empty:
         return {"error": "no_news"}
 
-    # Filter to financial/political news, prefer CNBC, Bloomberg, CNN, BBC, ABC
-    # Jim Cramer and Trump-related content get higher priority
     df = filter_and_rank_news(df)
     if df.empty:
         return {"error": "no_news", "message": "No financial or political news matched filters"}
@@ -65,15 +99,26 @@ def run_pipeline(use_news_api: bool = False) -> dict:
     save_news(df, DATA_DIR)
     append_sentiment_summary(summary, DATA_DIR)
 
-    # Collect daily snapshot for data science (sentiment + all market indicators)
-    try:
-        collect_daily_snapshot(summary, DATA_DIR, news_df=df)
-    except Exception as e:
-        print(f"Daily tracker snapshot failed (non-fatal): {e}")
-
     history = load_sentiment_history(DATA_DIR)
     trend = get_sentiment_trend(history)
     return {**summary, "trend": trend["trend"], "recent_avg": trend["recent_avg"]}
+
+
+def _run_daily_snapshot():
+    """Collect daily tracker snapshot for ML/correlation after market close."""
+    try:
+        history = load_sentiment_history(DATA_DIR)
+        if not history:
+            print("[Daily snapshot] No sentiment history yet, skipping.")
+            return
+
+        df = load_news(DATA_DIR)
+        summary = history[-1]
+        news_df = df if not df.empty and "sentiment_compound" in df.columns else None
+        snapshot = collect_daily_snapshot(summary, DATA_DIR, news_df=news_df)
+        print(f"[Daily snapshot] Saved for {snapshot.get('date')}: score={snapshot.get('sentiment_score')}")
+    except Exception as e:
+        print(f"[Daily snapshot] Failed: {e}")
 
 
 def _sanitize_value(v):
@@ -185,70 +230,77 @@ def get_correlation_matrix():
 
 @app.route("/api/fear-greed")
 def get_fear_greed():
-    """Crypto Fear & Greed Index from Alternative.me."""
-    result = fetch_fear_greed()
-    resp = jsonify(result)
-    resp.headers["Cache-Control"] = "no-store, no-cache, max-age=300"
-    return resp
+    """Crypto Fear & Greed Index (served from 15-min cache)."""
+    with _cache_lock:
+        result = _market_cache["fear_greed"].copy()
+        result["cache_updated"] = _market_cache["last_updated"]
+    return jsonify(result)
 
 
 @app.route("/api/wall-street-fear-greed")
 def get_wall_street_fear_greed():
-    """Wall Street (CNN) Fear & Greed Index via RapidAPI. Requires RAPIDAPI_KEY."""
-    result = fetch_wall_street_fear_greed()
-    resp = jsonify(result)
-    resp.headers["Cache-Control"] = "no-store, no-cache, max-age=300"
-    return resp
+    """Wall Street (CNN) Fear & Greed Index (served from 15-min cache)."""
+    with _cache_lock:
+        result = _market_cache["wall_street_fear_greed"].copy()
+        result["cache_updated"] = _market_cache["last_updated"]
+    return jsonify(result)
 
 
 @app.route("/api/markets")
 def get_markets():
-    """S&P 500, Gold, VIX, and BTC OHLC in one response. Fetches sequentially to avoid yfinance mix-up."""
-    sp500_df = fetch_sp500_history(days=90)
-    gold_df = fetch_gold_history(days=90)
-    vix_df = fetch_vix_history(days=90)
-    btc_df = fetch_btc_history(days=90)
-    resp = jsonify({
-        "sp500_data": _ohlc_to_list(sp500_df),
-        "gold_data": _ohlc_to_list(gold_df),
-        "vix_data": _ohlc_to_list(vix_df),
-        "btc_data": _ohlc_to_list(btc_df),
-    })
+    """S&P 500, Gold, VIX, BTC OHLC (served from 15-min cache)."""
+    with _cache_lock:
+        data = _market_cache["markets"].copy()
+        data["cache_updated"] = _market_cache["last_updated"]
+    resp = jsonify(data)
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
 
 
 @app.route("/api/markets/sp500")
 def get_sp500():
-    """S&P 500 only - separate endpoint to avoid data mix-up."""
-    df = fetch_sp500_history(days=90)
-    resp = jsonify({"asset": "sp500", "data": _ohlc_to_list(df)})
+    """S&P 500 only (served from 15-min cache)."""
+    with _cache_lock:
+        data = _market_cache["markets"].get("sp500_data", [])
+    resp = jsonify({"asset": "sp500", "data": data})
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
 
 
 @app.route("/api/markets/gold")
 def get_gold():
-    """Gold only - separate endpoint to avoid data mix-up."""
-    df = fetch_gold_history(days=90)
-    resp = jsonify({"asset": "gold", "data": _ohlc_to_list(df)})
+    """Gold only (served from 15-min cache)."""
+    with _cache_lock:
+        data = _market_cache["markets"].get("gold_data", [])
+    resp = jsonify({"asset": "gold", "data": data})
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
 
 
 @app.route("/api/markets/vix")
 def get_vix():
-    """VIX only - separate endpoint to avoid data mix-up."""
-    df = fetch_vix_history(days=90)
-    resp = jsonify({"asset": "vix", "data": _ohlc_to_list(df)})
+    """VIX only (served from 15-min cache)."""
+    with _cache_lock:
+        data = _market_cache["markets"].get("vix_data", [])
+    resp = jsonify({"asset": "vix", "data": data})
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
 
 
 @app.route("/api/health")
 def health():
-    """Health check."""
-    return jsonify({"status": "ok"})
+    """Health check with schedule info."""
+    with _cache_lock:
+        cache_updated = _market_cache["last_updated"]
+    return jsonify({
+        "status": "ok",
+        "market_cache_updated": cache_updated,
+        "schedule": {
+            "market_refresh": f"every {os.getenv('MARKET_REFRESH_MINUTES', '15')} min",
+            "news_pipeline": f"every {os.getenv('NEWS_PIPELINE_MINUTES', '60')} min",
+            "daily_snapshot": f"{os.getenv('DAILY_SNAPSHOT_HOUR', '21')}:{os.getenv('DAILY_SNAPSHOT_MINUTE', '30')} UTC",
+        },
+    })
 
 
 # Production: serve built React app when frontend/dist exists
@@ -281,39 +333,77 @@ else:
         )
 
 
-def _run_scheduled_pipeline():
-    """Run pipeline once per day. File lock ensures only one process runs (Gunicorn multi-worker)."""
-    if os.getenv("DISABLE_SCHEDULED_PIPELINE", "").lower() in ("1", "true", "yes"):
-        return
+def _locked_run(job_name, fn, *args, **kwargs):
+    """Run a function with a file lock (safe for Gunicorn multi-worker)."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    lock_path = DATA_DIR / ".pipeline_schedule.lock"
+    lock_path = DATA_DIR / f".{job_name}.lock"
     try:
         from filelock import FileLock
         lock = FileLock(lock_path, timeout=150)
         with lock:
-            result = run_pipeline(use_news_api=True)
-            print(f"[Scheduled pipeline] {result.get('article_count', 0)} articles, score={result.get('overall_score')}")
+            return fn(*args, **kwargs)
     except Exception as e:
-        print(f"[Scheduled pipeline] Failed: {e}")
+        print(f"[{job_name}] Failed: {e}")
 
 
-def _start_scheduler():
-    """Start daily pipeline scheduler (2 PM UTC). No extra cost — runs on same web service."""
-    if os.getenv("DISABLE_SCHEDULED_PIPELINE", "").lower() in ("1", "true", "yes"):
+def _scheduled_market_refresh():
+    """Refresh market data + F&G cache (every 15 min)."""
+    _refresh_market_cache()
+
+
+def _scheduled_news_pipeline():
+    """Fetch and analyze news (every 1 hour)."""
+    result = _locked_run("news_pipeline", run_pipeline, use_news_api=True)
+    if result:
+        print(f"[News pipeline] {result.get('article_count', 0)} articles, score={result.get('overall_score')}")
+
+
+def _scheduled_daily_snapshot():
+    """Collect daily snapshot for ML/correlation (after market close)."""
+    _locked_run("daily_snapshot", _run_daily_snapshot)
+
+
+def _start_schedulers():
+    """Start all three background schedulers.
+
+    1. Market trackers + F&G: every 15 minutes
+    2. News pipeline: every 1 hour
+    3. Daily tracker snapshot: once per day at 21:30 UTC (4:30 PM ET, after market close)
+    """
+    disabled = os.getenv("DISABLE_SCHEDULED_PIPELINE", "").lower() in ("1", "true", "yes")
+    if disabled:
+        print("[Scheduler] All scheduled jobs disabled via DISABLE_SCHEDULED_PIPELINE")
         return
+
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
-        hour = int(os.getenv("PIPELINE_SCHEDULE_HOUR", "14"))
-        minute = int(os.getenv("PIPELINE_SCHEDULE_MINUTE", "0"))
+
+        market_interval = int(os.getenv("MARKET_REFRESH_MINUTES", "15"))
+        news_interval = int(os.getenv("NEWS_PIPELINE_MINUTES", "60"))
+        snapshot_hour = int(os.getenv("DAILY_SNAPSHOT_HOUR", "21"))
+        snapshot_minute = int(os.getenv("DAILY_SNAPSHOT_MINUTE", "30"))
+
         scheduler = BackgroundScheduler()
-        scheduler.add_job(_run_scheduled_pipeline, "cron", hour=hour, minute=minute)
+
+        scheduler.add_job(_scheduled_market_refresh, "interval", minutes=market_interval,
+                          id="market_refresh", name="Market data + F&G (15min)")
+        scheduler.add_job(_scheduled_news_pipeline, "interval", minutes=news_interval,
+                          id="news_pipeline", name="News pipeline (1hr)")
+        scheduler.add_job(_scheduled_daily_snapshot, "cron", hour=snapshot_hour, minute=snapshot_minute,
+                          id="daily_snapshot", name="Daily ML snapshot (after market close)")
+
         scheduler.start()
-        print(f"[Scheduler] Daily pipeline at {hour:02d}:{minute:02d} UTC")
+        print(f"[Scheduler] Market trackers: every {market_interval} min")
+        print(f"[Scheduler] News pipeline: every {news_interval} min")
+        print(f"[Scheduler] Daily snapshot: {snapshot_hour:02d}:{snapshot_minute:02d} UTC")
     except Exception as e:
         print(f"[Scheduler] Failed to start: {e}")
 
 
-_start_scheduler()
+# On startup: populate market cache + run news pipeline immediately
+_refresh_market_cache()
+_scheduled_news_pipeline()
+_start_schedulers()
 
 if __name__ == "__main__":
     app.run(debug=os.getenv("FLASK_DEBUG", "false").lower() == "true", host="0.0.0.0", port=int(os.getenv("PORT", 5001)))

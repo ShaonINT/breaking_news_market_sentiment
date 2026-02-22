@@ -63,20 +63,18 @@ function TrendBadge({ trend }) {
   return <span className={`trend-badge ${cls}`}>{trend}</span>
 }
 
-function formatTimeAgo(dateStr) {
+function formatTimestamp(dateStr) {
   if (!dateStr) return '—'
   const d = new Date(dateStr)
   if (Number.isNaN(d.getTime())) return '—'
-  const now = new Date()
-  const diffMs = now - d
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-  if (diffMins < 1) return 'just now'
-  if (diffMins < 60) return `${diffMins} min ago`
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
-  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
-  return d.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const pad = (n) => String(n).padStart(2, '0')
+  const dd = pad(d.getDate())
+  const mm = pad(d.getMonth() + 1)
+  const yyyy = d.getFullYear()
+  const hh = pad(d.getHours())
+  const min = pad(d.getMinutes())
+  const ss = pad(d.getSeconds())
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`
 }
 
 function NewsList({ news }) {
@@ -94,7 +92,7 @@ function NewsList({ news }) {
             <th>Headline</th>
             <th>Type</th>
             <th>Source</th>
-            <th>Time</th>
+            <th>Timestamp</th>
             <th>Sentiment</th>
           </tr>
         </thead>
@@ -110,7 +108,7 @@ function NewsList({ news }) {
                 {article.news_type && <span className={`type-badge type-${(article.news_type || '').toLowerCase().replace(/[\s\/]+/g, '-')}`}>{article.news_type}</span>}
               </td>
               <td className="news-source-cell">{article.source}</td>
-              <td className="news-time-cell">{formatTimeAgo(article.published_at)}</td>
+              <td className="news-time-cell">{formatTimestamp(article.published_at)}</td>
               <td>
                 <span className={`sentiment-badge ${article.sentiment_label || 'neutral'}`}>
                   {(article.sentiment_label || 'neutral').charAt(0).toUpperCase() + (article.sentiment_label || 'neutral').slice(1)}
@@ -559,9 +557,33 @@ export default function App() {
     return () => clearTimeout(t)
   }, [apiConnected, news.length, loading, error])
 
-  // News auto-refresh every 1 hour
+  // Fear & Greed auto-refresh every 15 min (market charts already poll via useMarkets)
   useEffect(() => {
-    const id = setInterval(fetchNews, 60 * 60 * 1000)
+    const refreshFG = async () => {
+      try {
+        const [fgRes, wsFgRes] = await Promise.allSettled([
+          fetchWithTimeout(`${API}/fear-greed`, 6000),
+          fetchWithTimeout(`${API}/wall-street-fear-greed`, 6000),
+        ])
+        const fg = fgRes.status === 'fulfilled' && fgRes.value?.ok ? await fgRes.value.json() : null
+        const wsFg = wsFgRes.status === 'fulfilled' && wsFgRes.value?.ok ? await wsFgRes.value.json() : null
+        if (fg) setFearGreed(fg)
+        if (wsFg) setWallStreetFearGreed(wsFg)
+      } catch (_) {}
+    }
+    const id = setInterval(refreshFG, 15 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  // News auto-refresh: trigger pipeline + reload data every hour
+  useEffect(() => {
+    const refresh = async () => {
+      try {
+        await fetch(`${API}/pipeline/run`, { method: 'POST' })
+      } catch (_) {}
+      fetchData().catch(() => {})
+    }
+    const id = setInterval(refresh, 60 * 60 * 1000)
     return () => clearInterval(id)
   }, [])
 

@@ -62,8 +62,11 @@ Every pipeline run also snapshots the overall and per-source sentiment alongside
 - **Data collection start date** displayed in the dashboard
 
 ### Data Science Pipeline
-- **Automatic daily run** — Pipeline runs once per day at 2 PM UTC (configurable). No extra cost — runs on the same web service. Set `DISABLE_SCHEDULED_PIPELINE=true` to turn off.
-- **Daily tracker** (`data/daily_tracker.csv`) — Each pipeline run appends: date, sentiment score/label/percentages, article count, Crypto F&G, Wall Street F&G, S&P 500 close, Gold close, VIX close, BTC close
+- **Three-tier auto-refresh** — All run on the same web service (no extra cost). Set `DISABLE_SCHEDULED_PIPELINE=true` to turn off.
+  - **Every 15 min** — Market trackers (S&P 500, Gold, VIX, BTC) + Fear & Greed indices (Crypto & Wall Street) refresh
+  - **Every 1 hour** — News pipeline fetches, filters, analyzes, and saves fresh articles + sentiment
+  - **Daily after market close (21:30 UTC / 4:30 PM ET)** — Snapshot saved to `daily_tracker.csv` for ML/correlation training
+- **Daily tracker** (`data/daily_tracker.csv`) — After each market close: date, sentiment score/label/percentages, article count, Crypto F&G, Wall Street F&G, S&P 500 close, Gold close, VIX close, BTC close
 - **Source sentiment tracker** (`data/source_sentiment.csv`) — Per-source-category average sentiment with corresponding market data for correlation computation
 - **News archive** (`data/news_archive.csv`) — All articles with sentiment scores, labels, source, URL, and `news_type` classification — ready for supervised learning
 - **Multi-label classification available** — `classify_news_types_multi()` returns all matching types per article for multi-label ML tasks
@@ -326,7 +329,7 @@ Click **Fetch Latest News** to run the pipeline, or `POST /api/pipeline/run`.
 4. Add a **Persistent Disk** (1 GB, $0.25/mo) mounted at **`/app/data`** to preserve collected data across deploys
 5. Set environment variables in the dashboard (`NEWSAPI_KEY`, `RAPIDAPI_KEY` — both optional)
 
-**Correlations not showing on deployment?** The matrix needs 3+ pipeline runs. Click "Fetch Latest News" 3 times on your deployed app (or wait 3 days for the daily auto-run). Ensure the disk is mounted at `/app/data` so data persists.
+**Correlations not showing on deployment?** The matrix needs 3+ pipeline runs. Click "Fetch Latest News" 3 times on your deployed app (or wait a few hours for the hourly auto-runs). Ensure the disk is mounted at `/app/data` so data persists.
 
 ### Docker
 
@@ -375,9 +378,11 @@ The `classify_news_types_multi()` function in `news_filter.py` returns all match
 | `RAPIDAPI_KEY` | No | RapidAPI key for Wall Street (CNN) Fear & Greed; subscribe at [RapidAPI](https://rapidapi.com/rpi4gx/api/fear-and-greed-index) |
 | `TWITTER_BEARER_TOKEN` | No | X API v2 bearer token for Trump tweets (paid). Truth Social RSS works without this |
 | `FLASK_DEBUG` | No | Set to `true` for auto-reload during development |
-| `DISABLE_SCHEDULED_PIPELINE` | No | Set to `true` to disable daily auto-run |
-| `PIPELINE_SCHEDULE_HOUR` | No | Hour (UTC) for daily pipeline run (default: `14` = 2 PM) |
-| `PIPELINE_SCHEDULE_MINUTE` | No | Minute for daily pipeline run (default: `0`) |
+| `DISABLE_SCHEDULED_PIPELINE` | No | Set to `true` to disable all automatic scheduled jobs |
+| `MARKET_REFRESH_MINUTES` | No | Market tracker + F&G refresh interval (default: `15`) |
+| `NEWS_PIPELINE_MINUTES` | No | News pipeline interval (default: `60`) |
+| `DAILY_SNAPSHOT_HOUR` | No | Hour (UTC) for daily ML snapshot (default: `21` = 9:30 PM UTC / 4:30 PM ET) |
+| `DAILY_SNAPSHOT_MINUTE` | No | Minute for daily ML snapshot (default: `30`) |
 | `DATA_DIR` | No | Override data directory (default: `project/data`). On Render: mount disk at `/app/data` |
 
 ---

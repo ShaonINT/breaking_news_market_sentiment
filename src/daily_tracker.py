@@ -352,7 +352,7 @@ def compute_correlation_matrix(data_dir: Path, period_key: str = None) -> dict:
             "indicators": [INDICATOR_LABELS[i] for i in INDICATORS],
             "data_start": None,
             "total_days": 0,
-            "message": "No data yet. Click 'Fetch Latest News' 3+ times (or wait for daily auto-run) to start collecting.",
+            "message": "No data yet. Click 'Fetch Latest News' 3+ times (or wait for hourly auto-runs) to start collecting.",
         }
 
     from datetime import date, timedelta
@@ -385,5 +385,5 @@ def compute_correlation_matrix(data_dir: Path, period_key: str = None) -> dict:
         "indicators": [INDICATOR_LABELS[i] for i in INDICATORS],
         "data_start": str(data_start),
         "total_days": total_days,
-        "message": f"Collecting since {data_start} ({total_days} day(s)). Need 3+ pipeline runs for correlations. Run 'Fetch Latest News' a few times or wait for the daily auto-run.",
+        "message": f"Collecting since {data_start} ({total_days} day(s)). Need 3+ pipeline runs for correlations. Run 'Fetch Latest News' a few times or wait for the hourly auto-runs.",
     }
