@@ -323,7 +323,7 @@ function BtcTrackerCard({ btcData }) {
 }
 
 
-function CorrelationHeatmap({ apiBase }) {
+function OverallCorrelation({ apiBase }) {
   const [data, setData] = useState(null)
   const [activePeriod, setActivePeriod] = useState('7d')
   const canvasRef = useRef(null)
@@ -337,109 +337,78 @@ function CorrelationHeatmap({ apiBase }) {
 
   const period = data?.periods?.find((p) => p.key === activePeriod) || data?.periods?.[0]
   const matrix = period?.matrix || {}
-  const categories = period?.categories || []
   const indicators = data?.indicators || []
+  const overallRow = matrix['Overall Sentiment'] || {}
+  const hasOverall = Object.values(overallRow).some((v) => v != null)
 
+  // Draw heatmap — single row: Overall Sentiment vs each ticker
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !categories.length || !indicators.length) return
+    if (!canvas || !hasOverall || !indicators.length) return
 
     const ctx = canvas.getContext('2d')
     const dpr = window.devicePixelRatio || 1
 
-    const labelW = 170
-    const cellW = 68
-    const cellH = 36
-    const headerH = 60
-    const totalW = labelW + indicators.length * cellW
-    const totalH = headerH + categories.length * cellH
+    const cellW = 90
+    const cellH = 52
+    const labelH = 40
+    const totalW = indicators.length * cellW
+    const totalH = labelH + cellH
 
     canvas.width = totalW * dpr
     canvas.height = totalH * dpr
     canvas.style.width = totalW + 'px'
     canvas.style.height = totalH + 'px'
     ctx.scale(dpr, dpr)
-
     ctx.clearRect(0, 0, totalW, totalH)
-    ctx.font = '500 11px -apple-system, BlinkMacSystemFont, sans-serif'
 
-    ctx.save()
     indicators.forEach((ind, ci) => {
-      const x = labelW + ci * cellW + cellW / 2
-      ctx.save()
-      ctx.translate(x, headerH - 6)
-      ctx.rotate(-Math.PI / 6)
+      const x = ci * cellW
+      const val = overallRow[ind]
+
+      // Label
       ctx.fillStyle = '#94a3b8'
-      ctx.textAlign = 'left'
-      ctx.font = '600 10px -apple-system, BlinkMacSystemFont, sans-serif'
-      ctx.fillText(ind, 0, 0)
-      ctx.restore()
-    })
-    ctx.restore()
+      ctx.textAlign = 'center'
+      ctx.font = '600 11px -apple-system, BlinkMacSystemFont, sans-serif'
+      ctx.fillText(ind, x + cellW / 2, labelH - 8)
 
-    categories.forEach((cat, ri) => {
-      const y = headerH + ri * cellH
-      const isHighlight = cat === 'Overall Sentiment' || cat.startsWith('All ')
-
-      ctx.fillStyle = isHighlight ? '#94a3b8' : '#64748b'
-      ctx.textAlign = 'left'
-      ctx.font = isHighlight ? 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif' : '500 11px -apple-system, BlinkMacSystemFont, sans-serif'
-      const maxLen = 22
-      ctx.fillText(cat.length > maxLen ? cat.slice(0, maxLen - 1) + '...' : cat, 4, y + cellH / 2 + 4)
-
-      indicators.forEach((ind, ci) => {
-        const x = labelW + ci * cellW
-        const val = matrix[cat]?.[ind]
-
-        let bg = '#1e293b'
-        let textColor = '#64748b'
-        if (val != null) {
-          const v = Math.max(-1, Math.min(1, val))
-          if (v > 0) {
-            const a = Math.min(v * 0.85, 0.75)
-            bg = `rgba(34, 197, 94, ${a})`
-            textColor = a > 0.3 ? '#fff' : '#e2e8f0'
-          } else if (v < 0) {
-            const a = Math.min(Math.abs(v) * 0.85, 0.75)
-            bg = `rgba(239, 68, 68, ${a})`
-            textColor = a > 0.3 ? '#fff' : '#e2e8f0'
-          }
+      // Cell
+      let bg = '#1e293b'
+      let textColor = '#64748b'
+      if (val != null) {
+        const v = Math.max(-1, Math.min(1, val))
+        if (v > 0) {
+          const a = Math.min(v * 0.85, 0.75)
+          bg = `rgba(34, 197, 94, ${a})`
+          textColor = a > 0.3 ? '#fff' : '#e2e8f0'
+        } else if (v < 0) {
+          const a = Math.min(Math.abs(v) * 0.85, 0.75)
+          bg = `rgba(239, 68, 68, ${a})`
+          textColor = a > 0.3 ? '#fff' : '#e2e8f0'
         }
-
-        ctx.fillStyle = bg
-        ctx.beginPath()
-        if (ctx.roundRect) {
-          ctx.roundRect(x + 1, y + 1, cellW - 2, cellH - 2, 4)
-        } else {
-          ctx.rect(x + 1, y + 1, cellW - 2, cellH - 2)
-        }
-        ctx.fill()
-
-        ctx.fillStyle = textColor
-        ctx.textAlign = 'center'
-        ctx.font = '600 12px "JetBrains Mono", monospace'
-        ctx.fillText(val != null ? val.toFixed(2) : '—', x + cellW / 2, y + cellH / 2 + 4)
-      })
-    })
-
-    categories.forEach((cat, ri) => {
-      if (cat === 'Overall Sentiment' || cat.startsWith('All ')) {
-        const lineY = headerH + ri * cellH
-        ctx.strokeStyle = 'rgba(59, 130, 246, 0.3)'
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(0, lineY)
-        ctx.lineTo(totalW, lineY)
-        ctx.stroke()
       }
+
+      ctx.fillStyle = bg
+      ctx.beginPath()
+      if (ctx.roundRect) {
+        ctx.roundRect(x + 3, labelH + 2, cellW - 6, cellH - 4, 6)
+      } else {
+        ctx.rect(x + 3, labelH + 2, cellW - 6, cellH - 4)
+      }
+      ctx.fill()
+
+      ctx.fillStyle = textColor
+      ctx.textAlign = 'center'
+      ctx.font = '700 16px "JetBrains Mono", monospace'
+      ctx.fillText(val != null ? val.toFixed(2) : '—', x + cellW / 2, labelH + cellH / 2 + 6)
     })
-  }, [data, activePeriod, categories, indicators, matrix])
+  }, [data, activePeriod, indicators, overallRow, hasOverall])
 
   if (!data || !data.periods?.length) {
-    const msg = data?.message || 'Run the pipeline daily to start building correlation data.'
+    const msg = data?.message || 'Daily snapshots build correlation data after each market close.'
     return (
       <div className="chart-card heatmap-card">
-        <h3>Correlation Heatmap</h3>
+        <h3>Overall Sentiment vs Market Correlation</h3>
         <p className="correlation-empty">{msg}</p>
       </div>
     )
@@ -452,7 +421,7 @@ function CorrelationHeatmap({ apiBase }) {
     <div className="chart-card heatmap-card">
       <div className="heatmap-header">
         <div>
-          <h3>Correlation Heatmap</h3>
+          <h3>Overall Sentiment vs Market Correlation</h3>
           <p className="heatmap-subtitle">
             {data_start && <>Since <strong>{data_start}</strong> &middot; </>}
             {total_days} day(s) of data
@@ -474,136 +443,20 @@ function CorrelationHeatmap({ apiBase }) {
         ))}
       </div>
 
-      {categories.length > 0 ? (
-        <div className="heatmap-canvas-wrap">
-          <canvas ref={canvasRef} className="heatmap-canvas" />
-        </div>
-      ) : (
-        <p className="correlation-empty corr-no-period-data">No data for this period yet.</p>
-      )}
-
-      <div className="heatmap-legend">
-        <span className="heatmap-leg-neg">-1.0</span>
-        <div className="heatmap-gradient" />
-        <span className="heatmap-leg-pos">+1.0</span>
-      </div>
-    </div>
-  )
-}
-
-
-function CorrelationMatrix({ apiBase }) {
-  const [data, setData] = useState(null)
-  const [activePeriod, setActivePeriod] = useState('7d')
-
-  useEffect(() => {
-    fetch(`${apiBase}/correlation-matrix`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {})
-  }, [apiBase])
-
-  if (!data || !data.periods?.length) {
-    const msg = data?.message || 'Run the pipeline daily to start building correlation data.'
-    return (
-      <div className="chart-card correlation-matrix-card">
-        <h3>Sentiment vs Market Correlation</h3>
-        <p className="correlation-empty">{msg}</p>
-      </div>
-    )
-  }
-
-  const { periods, indicators, data_start, total_days, message } = data
-  const period = periods.find((p) => p.key === activePeriod) || periods[0]
-  const { matrix, categories, days_available } = period
-
-  const cellColor = (val) => {
-    if (val === null || val === undefined) return { bg: 'transparent', text: 'var(--text-muted)' }
-    const v = Math.max(-1, Math.min(1, val))
-    if (v > 0) {
-      const alpha = Math.min(v * 0.8, 0.7)
-      return { bg: `rgba(34, 197, 94, ${alpha})`, text: alpha > 0.35 ? '#fff' : 'var(--text)' }
-    }
-    const alpha = Math.min(Math.abs(v) * 0.8, 0.7)
-    return { bg: `rgba(239, 68, 68, ${alpha})`, text: alpha > 0.35 ? '#fff' : 'var(--text)' }
-  }
-
-  const hasData = categories?.length > 0
-
-  return (
-    <div className="chart-card correlation-matrix-card">
-      <div className="corr-header">
-        <div>
-          <h3>Sentiment vs Market Correlation</h3>
-          <p className="correlation-subtitle">
-            {data_start && <>Collecting since <strong>{data_start}</strong> &middot; </>}
-            {total_days} day(s) of data
-            {days_available > 0 && <> &middot; {days_available} in selected period</>}
-          </p>
-          <p className="corr-markets-note">
-            How sentiment (positive/negative) × news type (Financial, Crypto, Tariff, etc.) correlates with market indicators
-          </p>
-        </div>
-      </div>
-
-      <div className="corr-period-tabs">
-        {periods.map((p) => (
-          <button
-            key={p.key}
-            className={`corr-period-tab ${activePeriod === p.key ? 'active' : ''}`}
-            onClick={() => setActivePeriod(p.key)}
-          >
-            {p.label}
-            {p.days_available > 0 && <span className="corr-tab-days">{p.days_available}d</span>}
-          </button>
-        ))}
-      </div>
-
-      {hasData ? (
+      {hasOverall ? (
         <>
-          <div className="corr-matrix-wrap">
-            <table className="corr-matrix-table">
-              <thead>
-                <tr>
-                  <th className="corr-label-header">Sentiment + Type</th>
-                  {indicators.map((ind) => (
-                    <th key={ind} className="corr-indicator-header">{ind}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {categories.map((cat) => (
-                  <tr key={cat} className={cat === 'Overall Sentiment' || cat.startsWith('All ') ? 'corr-overall-row' : ''}>
-                    <td className="corr-category">{cat}</td>
-                    {indicators.map((ind) => {
-                      const val = matrix[cat]?.[ind]
-                      const { bg, text } = cellColor(val)
-                      return (
-                        <td
-                          key={ind}
-                          className="corr-cell"
-                          style={{ backgroundColor: bg, color: text }}
-                          title={val != null ? `r = ${val.toFixed(4)}` : 'Insufficient data'}
-                        >
-                          {val != null ? val.toFixed(2) : '—'}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="heatmap-canvas-wrap">
+            <canvas ref={canvasRef} className="heatmap-canvas" />
           </div>
-          <p className="corr-legend">
-            <span className="corr-leg-pos">Green = positive correlation</span>
-            <span className="corr-leg-neg">Red = negative correlation</span>
-            <span className="corr-leg-none">— = not enough data</span>
-          </p>
+          <div className="heatmap-legend">
+            <span className="heatmap-leg-neg">-1.0 (inverse)</span>
+            <div className="heatmap-gradient" />
+            <span className="heatmap-leg-pos">+1.0 (correlated)</span>
+          </div>
         </>
       ) : (
-        <p className="correlation-empty corr-no-period-data">No data for this period yet.</p>
+        <p className="correlation-empty corr-no-period-data">Not enough data for this period yet. Need 3+ daily snapshots.</p>
       )}
-      {message && <p className="correlation-empty corr-note">{message}</p>}
     </div>
   )
 }
@@ -865,8 +718,7 @@ export default function App() {
         </section>
 
         <section className="correlation-matrix-section">
-          <CorrelationHeatmap apiBase={API} />
-          <CorrelationMatrix apiBase={API} />
+          <OverallCorrelation apiBase={API} />
         </section>
 
         <section className="news-section">
