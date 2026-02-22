@@ -35,7 +35,9 @@ from src.daily_tracker import collect_daily_snapshot, load_daily_tracker, comput
 
 load_dotenv()
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# Use DATA_DIR env var if set (e.g. Render disk mount path). Default: project/data
+_data_dir = os.getenv("DATA_DIR")
+DATA_DIR = Path(_data_dir) if _data_dir else Path(__file__).resolve().parent.parent / "data"
 app = Flask(__name__)
 CORS(app)
 

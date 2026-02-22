@@ -323,8 +323,10 @@ Click **Fetch Latest News** to run the pipeline, or `POST /api/pipeline/run`.
 1. Push to GitHub
 2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
 3. Connect your repository — Render auto-detects `render.yaml`
-4. Add a **Persistent Disk** (1 GB, $0.25/mo) mounted at `/app/data` to preserve collected data across deploys
+4. Add a **Persistent Disk** (1 GB, $0.25/mo) mounted at **`/app/data`** to preserve collected data across deploys
 5. Set environment variables in the dashboard (`NEWSAPI_KEY`, `RAPIDAPI_KEY` — both optional)
+
+**Correlations not showing on deployment?** The matrix needs 3+ pipeline runs. Click "Fetch Latest News" 3 times on your deployed app (or wait 3 days for the daily auto-run). Ensure the disk is mounted at `/app/data` so data persists.
 
 ### Docker
 
@@ -376,6 +378,7 @@ The `classify_news_types_multi()` function in `news_filter.py` returns all match
 | `DISABLE_SCHEDULED_PIPELINE` | No | Set to `true` to disable daily auto-run |
 | `PIPELINE_SCHEDULE_HOUR` | No | Hour (UTC) for daily pipeline run (default: `14` = 2 PM) |
 | `PIPELINE_SCHEDULE_MINUTE` | No | Minute for daily pipeline run (default: `0`) |
+| `DATA_DIR` | No | Override data directory (default: `project/data`). On Render: mount disk at `/app/data` |
 
 ---
 
