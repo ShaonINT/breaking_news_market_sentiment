@@ -278,5 +278,39 @@ else:
         )
 
 
+def _run_scheduled_pipeline():
+    """Run pipeline once per day. File lock ensures only one process runs (Gunicorn multi-worker)."""
+    if os.getenv("DISABLE_SCHEDULED_PIPELINE", "").lower() in ("1", "true", "yes"):
+        return
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    lock_path = DATA_DIR / ".pipeline_schedule.lock"
+    try:
+        from filelock import FileLock
+        lock = FileLock(lock_path, timeout=150)
+        with lock:
+            result = run_pipeline(use_news_api=True)
+            print(f"[Scheduled pipeline] {result.get('article_count', 0)} articles, score={result.get('overall_score')}")
+    except Exception as e:
+        print(f"[Scheduled pipeline] Failed: {e}")
+
+
+def _start_scheduler():
+    """Start daily pipeline scheduler (2 PM UTC). No extra cost — runs on same web service."""
+    if os.getenv("DISABLE_SCHEDULED_PIPELINE", "").lower() in ("1", "true", "yes"):
+        return
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        hour = int(os.getenv("PIPELINE_SCHEDULE_HOUR", "14"))
+        minute = int(os.getenv("PIPELINE_SCHEDULE_MINUTE", "0"))
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(_run_scheduled_pipeline, "cron", hour=hour, minute=minute)
+        scheduler.start()
+        print(f"[Scheduler] Daily pipeline at {hour:02d}:{minute:02d} UTC")
+    except Exception as e:
+        print(f"[Scheduler] Failed to start: {e}")
+
+
+_start_scheduler()
+
 if __name__ == "__main__":
     app.run(debug=os.getenv("FLASK_DEBUG", "false").lower() == "true", host="0.0.0.0", port=int(os.getenv("PORT", 5001)))

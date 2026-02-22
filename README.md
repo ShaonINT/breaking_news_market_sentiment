@@ -60,6 +60,7 @@ Every pipeline run also snapshots the overall and per-source sentiment alongside
 - **Data collection start date** displayed in the dashboard
 
 ### Data Science Pipeline
+- **Automatic daily run** — Pipeline runs once per day at 2 PM UTC (configurable). No extra cost — runs on the same web service. Set `DISABLE_SCHEDULED_PIPELINE=true` to turn off.
 - **Daily tracker** (`data/daily_tracker.csv`) — Each pipeline run appends: date, sentiment score/label/percentages, article count, Crypto F&G, Wall Street F&G, S&P 500 close, Gold close, VIX close, BTC close
 - **Source sentiment tracker** (`data/source_sentiment.csv`) — Per-source-category average sentiment with corresponding market data for correlation computation
 - **News archive** (`data/news_archive.csv`) — All articles with sentiment scores, labels, source, URL, and `news_type` classification — ready for supervised learning
@@ -370,6 +371,9 @@ The `classify_news_types_multi()` function in `news_filter.py` returns all match
 | `RAPIDAPI_KEY` | No | RapidAPI key for Wall Street (CNN) Fear & Greed; subscribe at [RapidAPI](https://rapidapi.com/rpi4gx/api/fear-and-greed-index) |
 | `TWITTER_BEARER_TOKEN` | No | X API v2 bearer token for Trump tweets (paid). Truth Social RSS works without this |
 | `FLASK_DEBUG` | No | Set to `true` for auto-reload during development |
+| `DISABLE_SCHEDULED_PIPELINE` | No | Set to `true` to disable daily auto-run |
+| `PIPELINE_SCHEDULE_HOUR` | No | Hour (UTC) for daily pipeline run (default: `14` = 2 PM) |
+| `PIPELINE_SCHEDULE_MINUTE` | No | Minute for daily pipeline run (default: `0`) |
 
 ---
 

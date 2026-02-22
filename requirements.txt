@@ -15,6 +15,10 @@ flask>=3.0.0
 flask-cors>=4.0.0
 gunicorn>=21.0.0
 
+# Scheduled pipeline (daily auto-run)
+apscheduler>=3.10.0
+filelock>=3.12.0
+
 # Optional: FinBERT for financial-specific sentiment (uncomment if needed)
 # transformers>=4.35.0
 # torch>=2.0.0
