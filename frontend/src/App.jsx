@@ -68,13 +68,13 @@ function formatTimestamp(dateStr) {
   const d = new Date(dateStr)
   if (Number.isNaN(d.getTime())) return '—'
   const pad = (n) => String(n).padStart(2, '0')
-  const dd = pad(d.getDate())
-  const mm = pad(d.getMonth() + 1)
-  const yyyy = d.getFullYear()
-  const hh = pad(d.getHours())
-  const min = pad(d.getMinutes())
-  const ss = pad(d.getSeconds())
-  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`
+  const dd = pad(d.getUTCDate())
+  const mm = pad(d.getUTCMonth() + 1)
+  const yyyy = d.getUTCFullYear()
+  const hh = pad(d.getUTCHours())
+  const min = pad(d.getUTCMinutes())
+  const ss = pad(d.getUTCSeconds())
+  return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss} GMT`
 }
 
 function NewsList({ news }) {
@@ -319,37 +319,14 @@ function BtcTrackerCard({ btcData }) {
 function CorrelationHeatmap({ apiBase }) {
   const [data, setData] = useState(null)
   const [activePeriod, setActivePeriod] = useState('7d')
-  const [snapshotMsg, setSnapshotMsg] = useState(null)
-  const [snapshotLoading, setSnapshotLoading] = useState(false)
   const canvasRef = useRef(null)
 
-  const fetchMatrix = () => {
+  useEffect(() => {
     fetch(`${apiBase}/correlation-matrix`)
       .then((r) => r.json())
       .then(setData)
       .catch(() => {})
-  }
-
-  useEffect(() => { fetchMatrix() }, [apiBase])
-
-  const triggerSnapshot = async () => {
-    setSnapshotLoading(true)
-    setSnapshotMsg(null)
-    try {
-      const res = await fetch(`${apiBase}/snapshot/run`, { method: 'POST' })
-      const j = await res.json()
-      if (j.error) {
-        setSnapshotMsg(j.message || j.error)
-      } else {
-        setSnapshotMsg(`Snapshot saved for ${j.snapshot?.date || 'today'}`)
-        fetchMatrix()
-      }
-    } catch {
-      setSnapshotMsg('Failed to trigger snapshot')
-    } finally {
-      setSnapshotLoading(false)
-    }
-  }
+  }, [apiBase])
 
   const period = data?.periods?.find((p) => p.key === activePeriod) || data?.periods?.[0]
   const matrix = period?.matrix || {}
@@ -453,14 +430,8 @@ function CorrelationHeatmap({ apiBase }) {
     const msg = data?.message || 'Run the pipeline daily to start building correlation data.'
     return (
       <div className="chart-card heatmap-card">
-        <div className="heatmap-header">
-          <h3>Correlation Heatmap</h3>
-          <button className="snapshot-btn" onClick={triggerSnapshot} disabled={snapshotLoading}>
-            {snapshotLoading ? 'Saving...' : 'Save Snapshot Now'}
-          </button>
-        </div>
+        <h3>Correlation Heatmap</h3>
         <p className="correlation-empty">{msg}</p>
-        {snapshotMsg && <p className="snapshot-msg">{snapshotMsg}</p>}
       </div>
     )
   }
@@ -479,9 +450,6 @@ function CorrelationHeatmap({ apiBase }) {
             {days_available > 0 && <> &middot; {days_available} in period</>}
           </p>
         </div>
-        <button className="snapshot-btn" onClick={triggerSnapshot} disabled={snapshotLoading}>
-          {snapshotLoading ? 'Saving...' : 'Save Snapshot Now'}
-        </button>
       </div>
 
       <div className="heatmap-period-tabs">
@@ -510,7 +478,6 @@ function CorrelationHeatmap({ apiBase }) {
         <div className="heatmap-gradient" />
         <span className="heatmap-leg-pos">+1.0</span>
       </div>
-      {snapshotMsg && <p className="snapshot-msg">{snapshotMsg}</p>}
     </div>
   )
 }

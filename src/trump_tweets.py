@@ -5,7 +5,7 @@ X (Twitter): Requires paid X API v2. Set TWITTER_BEARER_TOKEN in .env to add X t
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 import requests
@@ -45,13 +45,13 @@ def fetch_trump_x_tweets() -> pd.DataFrame:
         if not text or len(text) < 10:
             continue
         pub = t.get("created_at")
-        published = datetime.fromisoformat(pub.replace("Z", "+00:00")) if pub else datetime.now()
+        published = datetime.fromisoformat(pub.replace("Z", "+00:00")) if pub else datetime.now(timezone.utc)
         articles.append({
             "source": "Trump (X)",
             "title": text[:200],
             "summary": text[:500],
             "url": "",
             "published_at": published,
-            "fetched_at": datetime.now(),
+            "fetched_at": datetime.now(timezone.utc),
         })
     return pd.DataFrame(articles)

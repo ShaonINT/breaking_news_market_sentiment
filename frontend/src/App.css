@@ -761,35 +761,6 @@
   font-weight: 600;
 }
 
-.snapshot-btn {
-  padding: 0.4rem 0.85rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.snapshot-btn:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
-.snapshot-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.snapshot-msg {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  margin: 0.5rem 0 0;
-}
-
 /* Correlation Matrix */
 .correlation-matrix-section {
   margin-top: 1.5rem;

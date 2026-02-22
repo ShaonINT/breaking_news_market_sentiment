@@ -1,7 +1,7 @@
 """Store and track financial sentiment over time."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -49,7 +49,7 @@ def append_sentiment_summary(summary: dict, path: Path = DEFAULT_DB_PATH) -> Non
     """Append current sentiment summary to history for trend tracking."""
     ensure_data_dir(path)
     filepath = path / SENTIMENT_HISTORY_JSON
-    record = {**summary, "timestamp": datetime.now().isoformat()}
+    record = {**summary, "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
     if filepath.exists():
         with open(filepath) as f:
