@@ -11,22 +11,43 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
-# Financial and political news RSS feeds (no API key required)
+# Financial, political, and crypto RSS feeds (no API key required)
 RSS_FEEDS = [
+    # --- Major Financial ---
     ("Bloomberg Markets", "https://feeds.bloomberg.com/markets/news.rss"),
     ("CNBC Top News", "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
     ("CNBC Business", "https://www.cnbc.com/id/10001147/device/rss/rss.html"),
-    ("Dow Jones", "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
+    ("MarketWatch", "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
+    ("MarketWatch Pulse", "https://feeds.content.dowjones.io/public/rss/mw_marketpulse"),
     ("Yahoo Finance", "https://finance.yahoo.com/rss/topstories"),
     ("Yahoo Finance Markets", "https://finance.yahoo.com/rss/headline?s=^GSPC"),
-    ("Reuters Business", "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best"),
+    ("Investing.com", "https://www.investing.com/rss/news.rss"),
+    ("Investing.com Markets", "https://www.investing.com/rss/news_301.rss"),
+    ("Seeking Alpha", "https://seekingalpha.com/market_currents.xml"),
+    ("Financial Times", "https://www.ft.com/?format=rss"),
+    # --- Macro / Contrarian ---
+    ("Zero Hedge", "https://feeds.feedburner.com/zerohedge/feed"),
+    # --- Crypto ---
+    ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
+    ("CoinTelegraph", "https://cointelegraph.com/rss"),
+    ("Decrypt", "https://decrypt.co/feed"),
+    # --- Political / Policy ---
     ("CNN Top Stories", "http://rss.cnn.com/rss/cnn_topstories.rss"),
     ("CNN Politics", "http://rss.cnn.com/rss/cnn_allpolitics.rss"),
     ("CNN Business", "http://rss.cnn.com/rss/money_news_international.rss"),
+    ("Fox Business", "https://moxie.foxbusiness.com/google-publisher/latest.xml"),
+    ("Fox News Politics", "https://moxie.foxnews.com/google-publisher/politics.xml"),
+    ("The Hill", "https://thehill.com/feed/"),
+    ("NPR News", "https://feeds.npr.org/1001/rss.xml"),
+    ("NPR Business", "https://feeds.npr.org/1006/rss.xml"),
     ("BBC News", "http://feeds.bbci.co.uk/news/rss.xml"),
     ("BBC Business", "http://feeds.bbci.co.uk/news/business/rss.xml"),
     ("ABC News", "https://abcnews.go.com/abcnews/topstories"),
     ("ABC Politics", "https://abcnews.go.com/abcnews/politicsheadlines"),
+    # --- Aggregators (Google News) ---
+    ("Reuters (Google)", "https://news.google.com/rss/search?q=site:reuters.com+finance&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News Business", "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en"),
+    ("Google News Economy", "https://news.google.com/rss/search?q=economy+OR+stock+market+OR+federal+reserve&hl=en-US&gl=US&ceid=US:en"),
 ]
 
 # Trump Truth Social RSS feeds (primary + fallbacks)
