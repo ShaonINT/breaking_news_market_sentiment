@@ -1,6 +1,12 @@
-"""Store and track financial sentiment over time."""
+"""Store and track financial sentiment over time.
+
+Two-file design:
+  news_latest.csv  — overwritten each pipeline run (source for /api/news)
+  news_archive.csv — append-only historical log (source for ML/correlation)
+"""
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,7 +14,8 @@ import pandas as pd
 
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data"
-NEWS_CSV = "news_archive.csv"
+NEWS_LATEST_CSV = "news_latest.csv"
+NEWS_ARCHIVE_CSV = "news_archive.csv"
 SENTIMENT_HISTORY_JSON = "sentiment_history.json"
 
 
@@ -20,35 +27,59 @@ def ensure_data_dir(path: Path = DEFAULT_DB_PATH) -> Path:
 
 def _normalize_title(t):
     """Normalize title for dedup: lowercase, strip whitespace/punctuation."""
-    import re
     if not isinstance(t, str):
         return ""
     return re.sub(r"[^a-z0-9 ]", "", t.lower()).strip()
 
 
 def save_news(df: pd.DataFrame, path: Path = DEFAULT_DB_PATH) -> None:
-    """Append new news to archive. Preserves original timestamps (keep='first')."""
+    """Save pipeline results to both live feed and archive.
+
+    news_latest.csv — fully replaced each run (what users see).
+    news_archive.csv — append-only, deduped, for long-term ML data.
+    """
     ensure_data_dir(path)
-    filepath = path / NEWS_CSV
-    if filepath.exists():
-        existing = pd.read_csv(filepath)
+
+    # 1. Live feed: overwrite with this run's fresh articles
+    latest_path = path / NEWS_LATEST_CSV
+    df.to_csv(latest_path, index=False)
+
+    # 2. Archive: append new articles, keep originals for history
+    archive_path = path / NEWS_ARCHIVE_CSV
+    if archive_path.exists():
+        existing = pd.read_csv(archive_path)
         existing["published_at"] = pd.to_datetime(existing["published_at"], format="mixed", utc=True, errors="coerce")
         existing["fetched_at"] = pd.to_datetime(existing["fetched_at"], format="mixed", utc=True, errors="coerce")
-        combined = pd.concat([existing, df], ignore_index=True)
-        combined["_norm_title"] = combined["title"].apply(_normalize_title)
-        combined = combined.drop_duplicates(subset=["_norm_title", "source"], keep="first")
-        combined = combined.drop(columns=["_norm_title"], errors="ignore")
+
+        combined = pd.concat([df, existing], ignore_index=True)
+        combined["_norm"] = combined["title"].apply(_normalize_title)
+        combined = combined.drop_duplicates(subset=["_norm", "source"], keep="first")
+        combined = combined.drop(columns=["_norm"], errors="ignore")
     else:
         combined = df
-    combined.to_csv(filepath, index=False)
+
+    combined.to_csv(archive_path, index=False)
 
 
 def load_news(path: Path = DEFAULT_DB_PATH) -> pd.DataFrame:
-    """Load archived news."""
-    filepath = path / NEWS_CSV
-    if not filepath.exists():
+    """Load latest pipeline results (for the news feed)."""
+    latest_path = path / NEWS_LATEST_CSV
+    if latest_path.exists():
+        df = pd.read_csv(latest_path)
+        for col in ["published_at", "fetched_at"]:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], format="mixed", utc=True, errors="coerce")
+        return df
+
+    return pd.DataFrame()
+
+
+def load_archive(path: Path = DEFAULT_DB_PATH) -> pd.DataFrame:
+    """Load full historical archive (for ML, daily snapshots, correlation)."""
+    archive_path = path / NEWS_ARCHIVE_CSV
+    if not archive_path.exists():
         return pd.DataFrame()
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(archive_path)
     for col in ["published_at", "fetched_at"]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], format="mixed", utc=True, errors="coerce")

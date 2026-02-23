@@ -26,6 +26,7 @@ from src.sentiment_analyzer import (
 from src.sentiment_tracker import (
     append_sentiment_summary,
     get_sentiment_trend,
+    load_archive,
     load_news,
     load_sentiment_history,
     save_news,
@@ -168,10 +169,11 @@ def _run_daily_snapshot():
     Recomputes sentiment from ALL articles published in the full trading day
     window (previous day 21:00 UTC through today 21:30 UTC), which covers
     overnight, premarket (4 AM ET), regular hours, and after-hours.
+    Uses the archive (not the live feed) for complete coverage.
     """
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
     try:
-        df = load_news(DATA_DIR)
+        df = load_archive(DATA_DIR)
         if df.empty or "sentiment_compound" not in df.columns:
             print("[Daily snapshot] No analyzed news yet, skipping.")
             return
@@ -280,28 +282,26 @@ def _ensure_fresh_markets():
 
 @app.route("/api/news")
 def get_news():
-    """Get latest news with pagination. Auto-refreshes if stale."""
+    """Get latest news with pagination. Auto-refreshes if stale.
+
+    Reads from news_latest.csv (overwritten each pipeline run) so articles
+    always reflect the most recent fetch with their true RSS timestamps.
+    """
     _ensure_fresh_news()
 
-    now = datetime.now(timezone.utc)
     df = load_news(DATA_DIR)
     if df.empty:
         return jsonify({"news": [], "total": 0, "page": 1, "per_page": 30, "has_more": False})
 
     df["published_at"] = pd.to_datetime(df["published_at"], utc=True, errors="coerce")
-    hours = int(request.args.get("hours", 24))
+    df = df.dropna(subset=["published_at"])
+    df = df.sort_values("published_at", ascending=False)
 
-    fresh = df[df["published_at"] >= now - timedelta(hours=hours)]
-    if len(fresh) < 5 and hours <= 24:
-        fresh = df[df["published_at"] >= now - timedelta(hours=48)]
-
-    fresh = fresh.sort_values("published_at", ascending=False)
-
-    total = len(fresh)
+    total = len(df)
     page = max(1, int(request.args.get("page", 1)))
     per_page = min(100, max(10, int(request.args.get("per_page", 30))))
     start = (page - 1) * per_page
-    page_df = fresh.iloc[start:start + per_page]
+    page_df = df.iloc[start:start + per_page]
 
     records = df_to_news_list(page_df)
     records = [r for r in records if r.get("title")]
