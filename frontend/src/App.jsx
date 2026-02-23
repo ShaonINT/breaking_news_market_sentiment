@@ -175,7 +175,14 @@ function SentimentYesterdayVsToday({ history }) {
   )
 }
 
+let _fgIdCounter = 0
+
 function FearGreedCard({ fearGreed, title, source }) {
+  const [ids] = useState(() => {
+    const n = ++_fgIdCounter
+    return { grad: `fgGrad${n}`, arc: `fgArc${n}`, shadow: `fgShadow${n}`, glow: `fgGlow${n}` }
+  })
+
   if (!fearGreed || fearGreed.error) {
     const msg = fearGreed?.error === 'no_api_key'
       ? 'Set RAPIDAPI_KEY to enable'
@@ -194,91 +201,104 @@ function FearGreedCard({ fearGreed, title, source }) {
   const classification = fearGreed.classification || 'Unknown'
   const prevValue = fearGreed.previous_value
   const prevClassification = fearGreed.previous_classification
+  const weekAgo = fearGreed.week_ago_value
   const pct = Math.min(100, Math.max(0, value))
 
-  const cx = 60
-  const cy = 28
-  const r = 44
+  const cx = 100
+  const cy = 90
+  const r = 70
   const arcLen = Math.PI * r
-  const segLen = arcLen / 3
+  const strokeW = 18
 
-  const needleAngleDeg = 180 - 180 * (pct / 100)
-  const needleRad = (needleAngleDeg * Math.PI) / 180
-  const needleLen = 36
-  const needleX = cx + needleLen * Math.cos(needleRad)
-  const needleY = cy - needleLen * Math.sin(needleRad)
+  const needleAngle = Math.PI - Math.PI * (pct / 100)
+  const needleLen = r - 8
+  const needleX = cx + needleLen * Math.cos(needleAngle)
+  const needleY = cy - needleLen * Math.sin(needleAngle)
 
-  const segmentColor = pct <= 33 ? '#f97316' : pct <= 66 ? '#eab308' : '#22c55e'
+  const segmentColor =
+    pct <= 20 ? '#ef4444' :
+    pct <= 40 ? '#f97316' :
+    pct <= 60 ? '#eab308' :
+    pct <= 80 ? '#84cc16' : '#22c55e'
+
+  const filledLen = arcLen * (pct / 100)
+
+  const changePrev = prevValue != null ? value - prevValue : null
+  const changeWeek = weekAgo != null ? value - weekAgo : null
 
   return (
     <div className="correlation-card fear-greed-card">
       <h3>{title}</h3>
       <div className="fear-greed-gauge-wrap">
-        <svg viewBox="0 0 120 85" className="fear-greed-svg">
+        <svg viewBox="0 0 200 115" className="fear-greed-svg">
           <defs>
-            <path id="fearGreedArcPath" d="M 14 72 A 44 44 0 0 1 106 72" />
-            <filter id="needleShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.2" />
+            <linearGradient id={ids.grad} gradientUnits="userSpaceOnUse" x1="20" y1="90" x2="180" y2="90">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="25%" stopColor="#f97316" />
+              <stop offset="50%" stopColor="#eab308" />
+              <stop offset="75%" stopColor="#84cc16" />
+              <stop offset="100%" stopColor="#22c55e" />
+            </linearGradient>
+            <path id={ids.arc} d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} />
+            <filter id={ids.shadow}>
+              <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.4" />
+            </filter>
+            <filter id={ids.glow}>
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          <path
-            d="M 14 72 A 44 44 0 0 1 106 72"
-            fill="none"
-            stroke="#f97316"
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={`${segLen} ${arcLen - segLen}`}
-          />
-          <path
-            d="M 14 72 A 44 44 0 0 1 106 72"
-            fill="none"
-            stroke="#eab308"
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={`${segLen} ${segLen}`}
-            strokeDashoffset={-segLen}
-          />
-          <path
-            d="M 14 72 A 44 44 0 0 1 106 72"
-            fill="none"
-            stroke="#22c55e"
-            strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={`${segLen} ${arcLen - segLen}`}
-            strokeDashoffset={-segLen * 2}
-          />
-          <text className="fear-greed-arc-label">
-            <textPath href="#fearGreedArcPath" startOffset="8%">FEAR</textPath>
-          </text>
-          <text className="fear-greed-arc-label">
-            <textPath href="#fearGreedArcPath" startOffset="42%">NEUTRAL</textPath>
-          </text>
-          <text className="fear-greed-arc-label">
-            <textPath href="#fearGreedArcPath" startOffset="75%">GREED</textPath>
-          </text>
-          <line
-            x1={cx}
-            y1={cy}
-            x2={needleX}
-            y2={needleY}
-            stroke="#d1d5db"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            filter="url(#needleShadow)"
-          />
-          <circle cx={cx} cy={cy} r="4" fill="#374151" stroke="#6b7280" strokeWidth="1" />
+          {/* Track */}
+          <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none" stroke="#1e293b" strokeWidth={strokeW} strokeLinecap="round" />
+          {/* Filled arc */}
+          <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none" stroke={`url(#${ids.grad})`} strokeWidth={strokeW} strokeLinecap="round"
+            strokeDasharray={`${filledLen} ${arcLen}`}
+            style={{ transition: 'stroke-dasharray 0.8s ease' }} />
+          {/* Tick marks */}
+          {[0, 25, 50, 75, 100].map((tick) => {
+            const a = Math.PI - Math.PI * (tick / 100)
+            const ix = cx + (r + 13) * Math.cos(a)
+            const iy = cy - (r + 13) * Math.sin(a)
+            const ox = cx + (r + 4) * Math.cos(a)
+            const oy = cy - (r + 4) * Math.sin(a)
+            return <g key={tick}>
+              <line x1={ox} y1={oy} x2={ix} y2={iy} stroke="#475569" strokeWidth="1.5" strokeLinecap="round" />
+            </g>
+          })}
+          {/* Zone labels */}
+          <text x={cx - r - 6} y={cy + 12} fill="#ef4444" fontSize="7" fontWeight="600" textAnchor="start">0</text>
+          <text x={cx} y={cy - r - 6} fill="#eab308" fontSize="7" fontWeight="600" textAnchor="middle">50</text>
+          <text x={cx + r + 6} y={cy + 12} fill="#22c55e" fontSize="7" fontWeight="600" textAnchor="end">100</text>
+          {/* Needle */}
+          <line x1={cx} y1={cy} x2={needleX} y2={needleY}
+            stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" filter={`url(#${ids.shadow})`}
+            style={{ transition: 'x2 0.8s ease, y2 0.8s ease' }} />
+          {/* Needle glow dot */}
+          <circle cx={needleX} cy={needleY} r="3" fill={segmentColor} filter={`url(#${ids.glow})`} opacity="0.8" />
+          {/* Center hub */}
+          <circle cx={cx} cy={cy} r="6" fill="#1e293b" stroke="#475569" strokeWidth="2" />
+          <circle cx={cx} cy={cy} r="2.5" fill="#94a3b8" />
         </svg>
         <div className="fear-greed-value-block">
           <span className="fear-greed-value" style={{ color: segmentColor }}>{value}</span>
           <span className="fear-greed-classification-inline" style={{ color: segmentColor }}>
-            ({classification.toUpperCase()})
+            {classification.toUpperCase()}
           </span>
         </div>
-        {prevValue != null && prevClassification && (
-          <p className="fear-greed-previous">
-            {prevClassification} Last Trading Day: {prevValue}
-          </p>
-        )}
+        <div className="fear-greed-changes">
+          {changePrev != null && (
+            <span className={`fg-change ${changePrev >= 0 ? 'fg-up' : 'fg-down'}`}>
+              {changePrev >= 0 ? '▲' : '▼'} {Math.abs(changePrev)} prev close
+            </span>
+          )}
+          {changeWeek != null && (
+            <span className={`fg-change ${changeWeek >= 0 ? 'fg-up' : 'fg-down'}`}>
+              {changeWeek >= 0 ? '▲' : '▼'} {Math.abs(changeWeek)} vs 1w ago
+            </span>
+          )}
+        </div>
       </div>
       <p className="fear-greed-source">{source}</p>
     </div>
@@ -704,7 +724,7 @@ export default function App() {
         <section className="correlation-section">
           <div className="fear-greed-row">
             <FearGreedCard fearGreed={fearGreed} title="Crypto Fear & Greed" source="Alternative.me · Crypto" />
-            <FearGreedCard fearGreed={wallStreetFearGreed} title="Wall Street Fear & Greed" source="CNN · RapidAPI" />
+            <FearGreedCard fearGreed={wallStreetFearGreed} title="Wall Street Fear & Greed" source="CNN Fear & Greed Index" />
           </div>
           <div className="fear-greed-btc-row">
             <BtcTrackerCard btcData={markets.btc_data} />
