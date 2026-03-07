@@ -759,7 +759,7 @@ export default function App() {
         )}
         <p className="developer-credit">
           Built by{' '}
-          <a href="https://www.linkedin.com/in/shaonbiswas/" target="_blank" rel="noopener noreferrer" className="developer-link">
+          <a href="https://imshaon.com" target="_blank" rel="noopener noreferrer" className="developer-link">
             Shaon Biswas
           </a>
         </p>
