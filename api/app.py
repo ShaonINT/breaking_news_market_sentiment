@@ -93,29 +93,57 @@ def _seconds_since_last_market_refresh() -> float:
 
 
 def _refresh_market_cache():
-    """Fetch all market trackers + F&G indices and update the in-memory cache."""
+    """Fetch all market trackers + F&G indices and update the in-memory cache.
+    Each fetch is independent so one failure does not leave the whole cache empty."""
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    updates = {}
+
     try:
         sp500_df = fetch_sp500_history(days=90)
+        updates["sp500_data"] = _ohlc_to_list(sp500_df)
+    except Exception as e:
+        print(f"[Market cache] SP500 fetch failed: {e}")
+
+    try:
         gold_df = fetch_gold_history(days=90)
+        updates["gold_data"] = _ohlc_to_list(gold_df)
+    except Exception as e:
+        print(f"[Market cache] Gold fetch failed: {e}")
+
+    try:
         vix_df = fetch_vix_history(days=90)
+        updates["vix_data"] = _ohlc_to_list(vix_df)
+    except Exception as e:
+        print(f"[Market cache] VIX fetch failed: {e}")
+
+    try:
         btc_df = fetch_btc_history(days=90)
-        fg = fetch_fear_greed()
-        ws_fg = fetch_wall_street_fear_greed()
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        with _cache_lock:
-            _market_cache["markets"] = {
-                "sp500_data": _ohlc_to_list(sp500_df),
-                "gold_data": _ohlc_to_list(gold_df),
-                "vix_data": _ohlc_to_list(vix_df),
-                "btc_data": _ohlc_to_list(btc_df),
-            }
-            _market_cache["fear_greed"] = fg
-            _market_cache["wall_street_fear_greed"] = ws_fg
+        updates["btc_data"] = _ohlc_to_list(btc_df)
+    except Exception as e:
+        print(f"[Market cache] BTC fetch failed: {e}")
+
+    try:
+        updates["fear_greed"] = fetch_fear_greed()
+    except Exception as e:
+        print(f"[Market cache] Fear & Greed fetch failed: {e}")
+
+    try:
+        updates["wall_street_fear_greed"] = fetch_wall_street_fear_greed()
+    except Exception as e:
+        print(f"[Market cache] Wall Street Fear & Greed fetch failed: {e}")
+
+    with _cache_lock:
+        if "sp500_data" in updates or "gold_data" in updates or "vix_data" in updates or "btc_data" in updates:
+            _market_cache["markets"].update({k: v for k, v in updates.items() if k in ("sp500_data", "gold_data", "vix_data", "btc_data")})
+        if "fear_greed" in updates:
+            _market_cache["fear_greed"] = updates["fear_greed"]
+        if "wall_street_fear_greed" in updates:
+            _market_cache["wall_street_fear_greed"] = updates["wall_street_fear_greed"]
+        if updates:
             _market_cache["last_updated"] = now_str
+    if updates:
         _write_ts(_MARKET_TS_FILE)
         print(f"[Market cache] Refreshed at {now_str}")
-    except Exception as e:
-        print(f"[Market cache] Refresh failed: {e}")
 
 # Use DATA_DIR env var if set (e.g. Render disk mount path). Default: project/data
 _data_dir = os.getenv("DATA_DIR")
@@ -369,18 +397,20 @@ def get_correlation_matrix():
 @app.route("/api/fear-greed")
 def get_fear_greed():
     """Crypto Fear & Greed Index (served from 15-min cache)."""
+    _ensure_fresh_markets()
     with _cache_lock:
-        result = _market_cache["fear_greed"].copy()
-        result["cache_updated"] = _market_cache["last_updated"]
+        result = (_market_cache.get("fear_greed") or {}).copy()
+        result["cache_updated"] = _market_cache.get("last_updated")
     return jsonify(result)
 
 
 @app.route("/api/wall-street-fear-greed")
 def get_wall_street_fear_greed():
     """Wall Street (CNN) Fear & Greed Index (served from 15-min cache)."""
+    _ensure_fresh_markets()
     with _cache_lock:
-        result = _market_cache["wall_street_fear_greed"].copy()
-        result["cache_updated"] = _market_cache["last_updated"]
+        result = (_market_cache.get("wall_street_fear_greed") or {}).copy()
+        result["cache_updated"] = _market_cache.get("last_updated")
     return jsonify(result)
 
 
